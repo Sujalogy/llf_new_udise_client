@@ -11,9 +11,6 @@ interface SchoolsTableProps {
 
 export function SchoolsTable({ schools, isLoading }: SchoolsTableProps) {
   const navigate = useNavigate();
-
-  // ... (keep loading and empty state code) ...
-
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="overflow-x-auto">

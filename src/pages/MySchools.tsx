@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+// src/pages/MySchools.tsx
+
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Search, Loader2 } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { ExportButton } from '../components/export/ExportButton';
 import { SchoolsTable } from '../components/schools/SchoolsTable';
@@ -9,16 +11,29 @@ import type { State, District, School } from '../types/school';
 export default function MySchools() {
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
+  
+  // Data State
   const [schools, setSchools] = useState<School[]>([]);
-
+  
+  // Filter State
   const [selectedState, setSelectedState] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  // Pagination & Loading State
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);        // For initial load
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // For appending data
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Fetch synced states on mount
+  // Observer Ref for scrolling
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Constants
+  const PAGE_LIMIT = 50;
+
+  // 1. Fetch synced states on mount
   useEffect(() => {
     async function fetchSyncedStates() {
       try {
@@ -32,7 +47,7 @@ export default function MySchools() {
     fetchSyncedStates();
   }, []);
 
-  // Fetch districts when state changes
+  // 2. Fetch districts when state changes
   useEffect(() => {
     if (!selectedState) {
       setDistricts([]);
@@ -41,66 +56,102 @@ export default function MySchools() {
     }
 
     async function fetchDistricts() {
-      setIsLoading(true);
+      // Don't set main loading here to avoid flashing, just district loading if we had it
       try {
         const districtsData = await api.getSyncedDistricts(selectedState);
         setDistricts(districtsData);
       } catch (error) {
         console.error("Failed to fetch districts", error);
         setDistricts([]);
-      } finally {
-        setIsLoading(false);
       }
     }
     fetchDistricts();
+    
+    // Reset selection downstream
     setSelectedDistrict('');
-    setSchools([]);
+    setSchools([]); 
   }, [selectedState]);
 
-  // Fetch schools when district changes
+  // 3. Reset Pagination when District Changes
   useEffect(() => {
-    if (!selectedState || !selectedDistrict) {
+    if (selectedDistrict) {
       setSchools([]);
-      return;
+      setPage(1);
+      setHasMore(true);
+      setTotalCount(0);
     }
+  }, [selectedDistrict]);
+
+  // 4. Fetch Schools (Initial + Append)
+  useEffect(() => {
+    if (!selectedState || !selectedDistrict) return;
 
     async function fetchSchools() {
-      setIsLoading(true);
-      try {
-        // Use 'any' type here because the backend returns an array, 
-        // but the strict TS interface expects an object.
-        const result: any = await api.getUdiseList(selectedState, selectedDistrict, 1, 50);
-        
-        let schoolsData: School[] = [];
-        let totalCount = 0;
+      const isInitial = page === 1;
 
-        // FIX: Check if result is an array (Backend behavior) or Object (Frontend expectation)
+      if (isInitial) setIsLoading(true);
+      else setIsLoadingMore(true);
+
+      try {
+        // Fetch data with current page
+        const result: any = await api.getUdiseList(selectedState, selectedDistrict, page, PAGE_LIMIT);
+        
+        let newSchools: School[] = [];
+        let fetchedCount = 0;
+        let backendTotal = 0;
+
+        // Handle different backend response structures
         if (Array.isArray(result)) {
-          schoolsData = result;
-          totalCount = result.length;
+          newSchools = result;
+          fetchedCount = result.length;
+          backendTotal = result.length; // Approx if no meta
         } else if (result && result.data) {
-          schoolsData = result.data;
-          totalCount = result.total;
+          newSchools = result.data;
+          fetchedCount = newSchools.length;
+          backendTotal = result.meta?.count || result.total || 0;
         }
 
-        setSchools(schoolsData);
-        setPagination({
-          page: 1, 
-          totalPages: 1, 
-          total: totalCount,
-        });
+        // Update State
+        if (isInitial) {
+          setSchools(newSchools);
+          setTotalCount(backendTotal);
+        } else {
+          setSchools((prev) => [...prev, ...newSchools]);
+        }
+
+        // Determine if there are more records to fetch
+        setHasMore(fetchedCount === PAGE_LIMIT);
+
       } catch (error) {
         console.error("Failed to fetch schools", error);
-        setSchools([]);
-        setPagination({ page: 1, totalPages: 1, total: 0 });
       } finally {
         setIsLoading(false);
+        setIsLoadingMore(false);
       }
     }
-    fetchSchools();
-  }, [selectedState, selectedDistrict]);
 
-  // Filter schools by search query (Safe navigation added)
+    fetchSchools();
+  }, [page, selectedState, selectedDistrict]);
+
+  // 5. Intersection Observer for Infinite Scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+          setPage((prev) => prev + 1);
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isLoadingMore]);
+
+  // Client-side filtering
   const filteredSchools = searchQuery
     ? (schools || []).filter(
         (school) =>
@@ -110,7 +161,7 @@ export default function MySchools() {
     : (schools || []);
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in pb-10">
       <header className="page-header">
         <h1 className="page-title">My Schools</h1>
         <p className="page-description">
@@ -177,7 +228,7 @@ export default function MySchools() {
             <Input
               placeholder="Search by school name or UDISE code..."
               value={searchQuery}
-              onChange={(e:any) => setSearchQuery(e.target.value)}
+              onChange={(e: any) => setSearchQuery(e.target.value)}
               className="pl-9"
             />
           </div>
@@ -188,13 +239,31 @@ export default function MySchools() {
       {selectedDistrict && (
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredSchools.length} of {pagination.total} schools
+            Showing {filteredSchools.length} {hasMore ? '+' : ''} of approx {totalCount} schools
           </p>
         </div>
       )}
 
       {/* Schools Table */}
       <SchoolsTable schools={filteredSchools} isLoading={isLoading && !!selectedDistrict} />
+
+      {/* Loader Sentinel for Infinite Scroll */}
+      {selectedDistrict && !isLoading && !searchQuery && (
+        <div 
+          ref={observerTarget} 
+          className="w-full h-20 flex items-center justify-center mt-4"
+        >
+          {isLoadingMore && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Loading more schools...</span>
+            </div>
+          )}
+          {!hasMore && schools.length > 0 && (
+            <p className="text-sm text-muted-foreground">No more schools to load.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

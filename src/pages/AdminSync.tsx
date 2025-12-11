@@ -2,24 +2,23 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, CheckCircle2, AlertCircle, Loader2, List, Database, FileText } from 'lucide-react';
 import { LocationFilters } from '../components/filters/LocationFilters';
 import { api } from '../lib/api';
-import { toast } from '../hooks/use-toast';
 import type { Year, State, District, SyncStatus } from '../types/school';
 import { Button } from '../components/ui/button';
+import { useSync } from '../context/SyncContext'; // Import hook
 
 export default function AdminSync() {
+  // Use Global State
+  const { 
+    selectedYear, selectedState, selectedDistrict, setSelections,
+    directoryStatus, gisStatus, detailsStatus,
+    runDirectorySync, runGisSync, runDetailsSync,
+    isStep1Complete
+  } = useSync();
+
+  // Local state for dropdown options only
   const [years, setYears] = useState<Year[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
-
-  const [selectedYear, setSelectedYear] = useState('');
-  const [selectedState, setSelectedState] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
-
-  // Statuses for 3 Steps
-  const [directoryStatus, setDirectoryStatus] = useState<SyncStatus>({ status: 'idle' });
-  const [gisStatus, setGisStatus] = useState<SyncStatus>({ status: 'idle' });
-  const [detailsStatus, setDetailsStatus] = useState<SyncStatus>({ status: 'idle' }); // <--- NEW
-  
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch years
@@ -30,7 +29,6 @@ export default function AdminSync() {
         setYears(yearsData);
       } catch (error) {
         console.error("Failed to fetch years", error);
-        setYears([]);
       }
     }
     fetchYears();
@@ -55,9 +53,7 @@ export default function AdminSync() {
       }
     }
     fetchStates();
-    setSelectedState('');
-    setSelectedDistrict('');
-    setDistricts([]);
+    // No need to clear local state here, context handles selections
   }, [selectedYear]);
 
   // Fetch districts
@@ -79,73 +75,12 @@ export default function AdminSync() {
       }
     }
     fetchDistricts();
-    setSelectedDistrict('');
   }, [selectedState, selectedYear]);
 
-  // Reset statuses on change
-  useEffect(() => {
-    setDirectoryStatus({ status: 'idle' });
-    setGisStatus({ status: 'idle' });
-    setDetailsStatus({ status: 'idle' });
-  }, [selectedYear, selectedState, selectedDistrict]);
-
-  // STEP 1: Sync Directory
-  const handleSyncDirectory = async () => {
-    if (!selectedYear || !selectedState || !selectedDistrict) {
-      toast({ title: 'Selection Required', description: 'Please select Year, State, and District.', variant: 'destructive' });
-      return;
-    }
-    setDirectoryStatus({ status: 'syncing', message: 'Fetching school list from UDISE+...' });
-    try {
-      const result = await api.syncDirectory(selectedYear, selectedState, selectedDistrict);
-      if (result.success) {
-        setDirectoryStatus({ status: 'success', message: `Found ${result.count} schools.` });
-        toast({ title: 'Directory Synced', description: `Successfully listed ${result.count} schools.` });
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      setDirectoryStatus({ status: 'error', message: 'Failed to fetch directory.' });
-      toast({ title: 'Sync Failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
-    }
-  };
-
-  // STEP 2: Sync GIS Data
-  const handleSyncGis = async () => {
-    setGisStatus({ status: 'syncing', message: 'Fetching details from GIS server...' });
-    try {
-      const result = await api.syncSchools(selectedState, selectedDistrict);
-      if (result.success) {
-        setGisStatus({ status: 'success', message: `Synced GIS for ${result.count} schools.` });
-        toast({ title: 'GIS Sync Complete', description: `Updated coordinates for ${result.count} schools.` });
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      setGisStatus({ status: 'error', message: 'GIS Sync failed.' });
-      toast({ title: 'Sync Failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
-    }
-  };
-
-  // STEP 3: Sync Full Details (NEW)
-  const handleSyncDetails = async () => {
-    setDetailsStatus({ status: 'syncing', message: 'Fetching detailed reports (Profile, Facilities, etc.)...' });
-    try {
-      // Calls the new backend endpoint that aggregates 8+ API calls per school
-      const result = await api.syncSchoolDetails(selectedYear, selectedState, selectedDistrict);
-      if (result.success) {
-        setDetailsStatus({ status: 'success', message: `Synced details for ${result.count} schools.` });
-        toast({ title: 'Deep Sync Complete', description: `Full details fetched for ${result.count} schools.` });
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error) {
-      setDetailsStatus({ status: 'error', message: 'Detail Sync failed.' });
-      toast({ title: 'Sync Failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
-    }
-  };
-
-  const isStep1Complete = directoryStatus.status === 'success';
+  // Handlers to update Context
+  const handleYearChange = (year: string) => setSelections(year, selectedState, selectedDistrict);
+  const handleStateChange = (state: string) => setSelections(selectedYear, state, '');
+  const handleDistrictChange = (district: string) => setSelections(selectedYear, selectedState, district);
 
   return (
     <div className="animate-fade-in max-w-6xl mx-auto">
@@ -164,9 +99,9 @@ export default function AdminSync() {
         selectedYear={selectedYear}
         selectedState={selectedState}
         selectedDistrict={selectedDistrict}
-        onYearChange={setSelectedYear}
-        onStateChange={setSelectedState}
-        onDistrictChange={setSelectedDistrict}
+        onYearChange={handleYearChange}
+        onStateChange={handleStateChange}
+        onDistrictChange={handleDistrictChange}
         showYear={true}
         isLoading={isLoading}
       />
@@ -188,7 +123,7 @@ export default function AdminSync() {
             Fetch master list of UDISE codes for <strong>{selectedYear || 'selected year'}</strong>.
           </p>
           <Button 
-            onClick={handleSyncDirectory}
+            onClick={runDirectorySync}
             disabled={!selectedDistrict || directoryStatus.status === 'syncing'}
             className="w-full mt-auto"
           >
@@ -212,7 +147,7 @@ export default function AdminSync() {
             Fetch Latitude, Longitude & basic info from GIS Server.
           </p>
           <Button 
-            onClick={handleSyncGis}
+            onClick={runGisSync}
             disabled={!isStep1Complete || gisStatus.status === 'syncing'}
             variant="secondary"
             className="w-full mt-auto"
@@ -222,7 +157,7 @@ export default function AdminSync() {
           <StatusMessage status={gisStatus} />
         </div>
 
-        {/* PANEL 3: Detail Sync (NEW) */}
+        {/* PANEL 3: Detail Sync */}
         <div className={`rounded-lg border border-border bg-card p-6 shadow-sm flex flex-col transition-opacity ${!isStep1Complete ? 'opacity-50' : 'opacity-100'}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
@@ -237,12 +172,12 @@ export default function AdminSync() {
             Fetch Profile, Facilities, Teachers, Enrolment & Social Data.
           </p>
           <Button 
-            onClick={handleSyncDetails}
+            onClick={runDetailsSync}
             disabled={!isStep1Complete || detailsStatus.status === 'syncing'}
             variant="outline"
             className="w-full mt-auto border-warning/50 hover:bg-warning/5 text-warning-foreground"
           >
-            {detailsStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Fetching...</> : <p className='text-gray-600'>'Sync Details'</p>}
+            {detailsStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Fetching...</> : 'Sync Details'}
           </Button>
           <StatusMessage status={detailsStatus} />
         </div>

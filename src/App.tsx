@@ -13,6 +13,7 @@ import SchoolDetail from "./pages/SchoolDetail";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
+import { SyncProvider } from "./context/SyncContext";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <SyncProvider>
           <Routes>
             {/* Public route */}
             <Route path="/auth" element={<Auth />} />
@@ -79,6 +81,7 @@ const App = () => (
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </SyncProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
