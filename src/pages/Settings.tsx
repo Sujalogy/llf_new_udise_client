@@ -26,7 +26,7 @@ export default function Settings() {
               <label className="text-sm font-medium text-foreground">API Base URL</label>
               <input
                 type="text"
-                value="http://localhost:3001/api"
+                value="http://localhost:3000/api"
                 readOnly
                 className="mt-1 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono"
               />
@@ -52,7 +52,7 @@ export default function Settings() {
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Tables</span>
-              <span className="font-medium">school_info, sync_history</span>
+              <span className="font-medium">school_udise_list, sync_history</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total Records</span>

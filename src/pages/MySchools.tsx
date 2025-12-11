@@ -25,12 +25,8 @@ export default function MySchools() {
         const statesData = await api.getSyncedStates();
         setStates(statesData);
       } catch (error) {
-        // Demo data
-        setStates([
-          { stateCode: '09', stateName: 'Uttar Pradesh' },
-          { stateCode: '27', stateName: 'Maharashtra' },
-          { stateCode: '08', stateName: 'Rajasthan' },
-        ]);
+        console.error("Failed to fetch synced states", error);
+        setStates([]); 
       }
     }
     fetchSyncedStates();
@@ -50,11 +46,8 @@ export default function MySchools() {
         const districtsData = await api.getSyncedDistricts(selectedState);
         setDistricts(districtsData);
       } catch (error) {
-        // Demo data
-        setDistricts([
-          { districtCode: '0901', districtName: 'Lucknow' },
-          { districtCode: '0902', districtName: 'Kanpur Nagar' },
-        ]);
+        console.error("Failed to fetch districts", error);
+        setDistricts([]);
       } finally {
         setIsLoading(false);
       }
@@ -74,73 +67,32 @@ export default function MySchools() {
     async function fetchSchools() {
       setIsLoading(true);
       try {
-        const result = await api.getUdiseList(selectedState, selectedDistrict, 1, 50);
-        setSchools(result.data);
+        // Use 'any' type here because the backend returns an array, 
+        // but the strict TS interface expects an object.
+        const result: any = await api.getUdiseList(selectedState, selectedDistrict, 1, 50);
+        
+        let schoolsData: School[] = [];
+        let totalCount = 0;
+
+        // FIX: Check if result is an array (Backend behavior) or Object (Frontend expectation)
+        if (Array.isArray(result)) {
+          schoolsData = result;
+          totalCount = result.length;
+        } else if (result && result.data) {
+          schoolsData = result.data;
+          totalCount = result.total;
+        }
+
+        setSchools(schoolsData);
         setPagination({
-          page: result.page,
-          totalPages: result.totalPages,
-          total: result.total,
+          page: 1, 
+          totalPages: 1, 
+          total: totalCount,
         });
       } catch (error) {
-        // Demo data
-        setSchools([
-          {
-            school_id: '1',
-            udise_code: '09010101001',
-            school_name: 'Government Primary School Aminabad',
-            state_name: 'Uttar Pradesh',
-            district_name: 'Lucknow',
-            block_name: 'Lucknow',
-            pincode: '226001',
-            category_name: 'Primary',
-            management_type: 'Government',
-          },
-          {
-            school_id: '2',
-            udise_code: '09010101002',
-            school_name: 'Kendriya Vidyalaya Aliganj',
-            state_name: 'Uttar Pradesh',
-            district_name: 'Lucknow',
-            block_name: 'Lucknow',
-            pincode: '226024',
-            category_name: 'Higher Secondary',
-            management_type: 'Central Govt',
-          },
-          {
-            school_id: '3',
-            udise_code: '09010101003',
-            school_name: 'City Montessori School',
-            state_name: 'Uttar Pradesh',
-            district_name: 'Lucknow',
-            block_name: 'Lucknow',
-            pincode: '226010',
-            category_name: 'Higher Secondary',
-            management_type: 'Private',
-          },
-          {
-            school_id: '4',
-            udise_code: '09010101004',
-            school_name: 'Government Upper Primary School Chowk',
-            state_name: 'Uttar Pradesh',
-            district_name: 'Lucknow',
-            block_name: 'Lucknow',
-            pincode: '226003',
-            category_name: 'Upper Primary',
-            management_type: 'Government',
-          },
-          {
-            school_id: '5',
-            udise_code: '09010101005',
-            school_name: 'St. Francis College',
-            state_name: 'Uttar Pradesh',
-            district_name: 'Lucknow',
-            block_name: 'Lucknow',
-            pincode: '226001',
-            category_name: 'Higher Secondary',
-            management_type: 'Private Aided',
-          },
-        ]);
-        setPagination({ page: 1, totalPages: 5, total: 247 });
+        console.error("Failed to fetch schools", error);
+        setSchools([]);
+        setPagination({ page: 1, totalPages: 1, total: 0 });
       } finally {
         setIsLoading(false);
       }
@@ -148,14 +100,14 @@ export default function MySchools() {
     fetchSchools();
   }, [selectedState, selectedDistrict]);
 
-  // Filter schools by search query
+  // Filter schools by search query (Safe navigation added)
   const filteredSchools = searchQuery
-    ? schools.filter(
+    ? (schools || []).filter(
         (school) =>
-          school.school_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          school.udise_code.includes(searchQuery)
+          school.school_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          school.udise_code?.includes(searchQuery)
       )
-    : schools;
+    : (schools || []);
 
   return (
     <div className="animate-fade-in">
@@ -188,8 +140,8 @@ export default function MySchools() {
               >
                 <option value="">Select State</option>
                 {states.map((state) => (
-                  <option key={state.stateCode} value={state.stateCode}>
-                    {state.stateName}
+                  <option key={state.stcode11} value={state.stcode11}>
+                    {state.stname}
                   </option>
                 ))}
               </select>
@@ -204,16 +156,16 @@ export default function MySchools() {
               >
                 <option value="">Select District</option>
                 {districts.map((district) => (
-                  <option key={district.districtCode} value={district.districtCode}>
-                    {district.districtName}
+                  <option key={district.dtcode11} value={district.dtcode11}>
+                    {district.dtname}
                   </option>
                 ))}
               </select>
             </div>
           </div>
           <ExportButton
-            stateCode={selectedState}
-            districtCode={selectedDistrict}
+            stcode11={selectedState}
+            dtcode11={selectedDistrict}
             disabled={!selectedDistrict}
           />
         </div>

@@ -12,11 +12,12 @@ interface GoogleUser {
   email: string;
   name: string;
   picture: string;
-  role: string;
+  role: string; // Ensure this exists
 }
 
 interface AuthContextType {
   user: GoogleUser | null;
+  role: string | undefined; // <--- ADDED THIS
   isLoading: boolean;
   signInWithGoogle: () => void;
   signOut: () => void;
@@ -24,30 +25,42 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split('')
+        .map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error("Failed to parse JWT", e);
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const GOOGLE_CLIENT_ID = "744649436990-ao0of92288tsqgjar4vcfr42p46npc44.apps.googleusercontent.com"
+  const GOOGLE_CLIENT_ID = "744649436990-ao0of92288tsqgjar4vcfr42p46npc44.apps.googleusercontent.com";
 
-  // 2. Load the Google Script dynamically
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
-    script.onload = () => {
-      // Optional: Auto-initialize if you want OneTap immediately, otherwise wait for button click
-      console.log("Google Identity Script loaded");
-    };
+    script.onload = () => console.log("Google Identity Script loaded");
     document.head.appendChild(script);
-
-    return () => {
-      document.head.removeChild(script);
-    };
+    return () => { document.head.removeChild(script); };
   }, []);
 
-  // 3. Load stored user on mount
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
@@ -61,68 +74,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  // 4. Main Sign In Function
   const signInWithGoogle = () => {
-    // Check if script is loaded using window.google
-    if (!window.google) {
-      alert("Google Sign-In script not loaded yet. Please refresh.");
-      return;
-    }
-
-    console.log("Initializing Google Sign-In...");
+    if (!window.google) return alert("Google Sign-In script not loaded.");
     
-    // Use window.google here to fix TS error "Cannot find name 'google'"
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      use_fedcm_for_prompt: false, // Fix for "FedCM get() rejects" error
+      use_fedcm_for_prompt: false,
       callback: async (response: any) => {
         try {
           setIsLoading(true);
-          console.log("Received Google Credential, verifying with backend...");
+          const payload = parseJwt(response.credential);
+          if (!payload) throw new Error("Invalid token");
 
-          // SEND TOKEN TO BACKEND
+          const userData = {
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+            googleId: payload.sub
+          };
+
           const apiResponse = await fetch('http://localhost:3000/api/auth/google', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ credential: response.credential }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
           });
 
           const data = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(data.error || 'Login failed');
 
-          if (!apiResponse.ok) {
-            throw new Error(data.error || 'Login failed');
-          }
-
-          // Save session token and user data
           localStorage.setItem("authToken", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
           
-          setUser(data.user);
-          console.log("Login Successful!");
-
+          setUser(data.user); // data.user includes 'role' from backend
+          
         } catch (error) {
           console.error("Login Error:", error);
-          alert("Authentication failed: " + (error instanceof Error ? error.message : "Unknown error"));
+          alert("Login failed");
         } finally {
           setIsLoading(false);
         }
       },
     });
 
-    // Trigger the prompt
-    window.google.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed()) {
-        console.log("Prompt not displayed reason:", notification.getNotDisplayedReason());
-      }
-    });
+    window.google.accounts.id.prompt();
   };
 
   const signOut = () => {
-    if (window.google) {
-      window.google.accounts.id.disableAutoSelect();
-    }
+    if (window.google) window.google.accounts.id.disableAutoSelect();
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
     setUser(null);
@@ -132,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        role: user?.role, // <--- IMPORTANT: Pass role directly here
         isLoading,
         signInWithGoogle,
         signOut,
@@ -146,4 +145,4 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
-}
+} 

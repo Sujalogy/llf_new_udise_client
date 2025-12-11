@@ -41,22 +41,8 @@ export default function SchoolDetail() {
         const profileData = await api.getSchoolProfile(schoolId!);
         setProfile(profileData);
       } catch (error) {
-        // Demo data
-        setProfile({
-          udise_code: '09010101001',
-          school_name: 'Government Primary School Aminabad',
-          state_name: 'Uttar Pradesh',
-          district_name: 'Lucknow',
-          block_name: 'Lucknow',
-          cluster: 'Aminabad Cluster',
-          pincode: '226001',
-          category_name: 'Primary',
-          management_type: 'Government',
-          establishment_year: 1965,
-          assembly_constituency: 'Lucknow West',
-          latitude: 26.8467,
-          longitude: 80.9462,
-        });
+        console.error("Failed to fetch school profile", error);
+        setProfile(null);
       }
       setIsLoading(false);
     }
@@ -95,52 +81,7 @@ export default function SchoolDetail() {
           break;
       }
     } catch (error) {
-      // Set demo data based on tab
-      if (tab === 'facility' && !facility) {
-        setFacility({
-          toilet_boys: 4,
-          toilet_girls: 4,
-          electricity: true,
-          furniture: 'Adequate',
-          boundary_wall: 'Complete',
-          building_status: 'Good',
-          classroom_count: 12,
-          drinking_water: true,
-          library: true,
-          playground: true,
-          ramp: true,
-        });
-      }
-      if (tab === 'social' && !socialData) {
-        setSocialData({
-          caste_SC: 45,
-          caste_ST: 12,
-          OBC: 78,
-          EWS: 34,
-          general: 89,
-          CWSN: 5,
-        });
-      }
-      if (tab === 'teachers' && !teacherStats) {
-        setTeacherStats({
-          teachers_male: 8,
-          teachers_female: 12,
-          total_teachers: 20,
-          ptr_primary: 28,
-          ptr_upper_primary: 32,
-          highly_qualified_count: 15,
-        });
-      }
-      if (tab === 'report' && !reportCard) {
-        setReportCard({
-          students_total: 456,
-          teachers_total: 20,
-          ramp_available: true,
-          library_available: true,
-          drinking_water_status: 'Available',
-          playground_status: 'Available',
-        });
-      }
+      console.error(`Failed to fetch data for tab ${tab}`, error);
     }
   };
 
@@ -238,19 +179,19 @@ export default function SchoolDetail() {
               <dl className="space-y-3">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Category</dt>
-                  <dd className="font-medium">{profile.category_name}</dd>
+                  <dd className="font-medium">{profile.category_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Management</dt>
-                  <dd className="font-medium">{profile.management_type}</dd>
+                  <dd className="font-medium">{profile.management_type || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Established</dt>
-                  <dd className="font-medium">{profile.establishment_year}</dd>
+                  <dd className="font-medium">{profile.establishment_year || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Cluster</dt>
-                  <dd className="font-medium">{profile.cluster}</dd>
+                  <dd className="font-medium">{profile.cluster || '-'}</dd>
                 </div>
               </dl>
             </div>
@@ -259,20 +200,20 @@ export default function SchoolDetail() {
               <dl className="space-y-3">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Block</dt>
-                  <dd className="font-medium">{profile.block_name}</dd>
+                  <dd className="font-medium">{profile.block_name || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Assembly</dt>
-                  <dd className="font-medium">{profile.assembly_constituency}</dd>
+                  <dd className="font-medium">{profile.assembly_constituency || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Pincode</dt>
-                  <dd className="font-mono">{profile.pincode}</dd>
+                  <dd className="font-mono">{profile.pincode || '-'}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Coordinates</dt>
                   <dd className="font-mono text-sm">
-                    {profile.latitude.toFixed(4)}, {profile.longitude.toFixed(4)}
+                    {profile.latitude?.toFixed(4) || 0}, {profile.longitude?.toFixed(4) || 0}
                   </dd>
                 </div>
               </dl>

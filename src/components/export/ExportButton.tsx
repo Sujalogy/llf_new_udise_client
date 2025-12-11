@@ -1,26 +1,26 @@
 import { useState } from 'react';
 import { Download, ChevronDown, FileJson, FileSpreadsheet } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../../components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { api } from '@/lib/api';
-import { toast } from '@/hooks/use-toast';
+} from '../../components/ui/dropdown-menu';
+import { api } from '../../lib/api';
+import { toast } from '../../hooks/use-toast';
 
 interface ExportButtonProps {
-  stateCode: string;
-  districtCode: string;
+  stcode11: string;
+  dtcode11: string;
   disabled?: boolean;
 }
 
-export function ExportButton({ stateCode, districtCode, disabled }: ExportButtonProps) {
+export function ExportButton({ stcode11, dtcode11, disabled }: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async (format: 'csv' | 'json') => {
-    if (!stateCode || !districtCode) {
+    if (!stcode11 || !dtcode11) {
       toast({
         title: 'Selection Required',
         description: 'Please select both State and District to export data.',
@@ -31,7 +31,7 @@ export function ExportButton({ stateCode, districtCode, disabled }: ExportButton
 
     setIsExporting(true);
     try {
-      await api.exportSchools(stateCode, districtCode, format);
+      await api.exportSchools(stcode11, dtcode11, format);
       toast({
         title: 'Export Successful',
         description: `Schools data exported as ${format.toUpperCase()}.`,
@@ -52,7 +52,7 @@ export function ExportButton({ stateCode, districtCode, disabled }: ExportButton
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          disabled={disabled || !districtCode || isExporting}
+          disabled={disabled || !dtcode11 || isExporting}
           className="gap-2"
         >
           {isExporting ? (

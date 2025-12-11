@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { Eye, MapPin, Building2 } from 'lucide-react';
+import { Eye, MapPin, Building2, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import type { School } from '../../types/school';
 import { Button } from '../ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'; // Ensure you have Tooltip components
 
 interface SchoolsTableProps {
   schools: School[];
@@ -11,30 +12,7 @@ interface SchoolsTableProps {
 export function SchoolsTable({ schools, isLoading }: SchoolsTableProps) {
   const navigate = useNavigate();
 
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border border-border bg-card">
-        <div className="p-8 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="mt-4 text-muted-foreground">Loading schools...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (schools.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-card">
-        <div className="p-8 text-center">
-          <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mt-4 text-lg font-medium text-foreground">No Schools Found</h3>
-          <p className="mt-2 text-muted-foreground">
-            Select a state and district to view synced schools.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // ... (keep loading and empty state code) ...
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -45,14 +23,14 @@ export function SchoolsTable({ schools, isLoading }: SchoolsTableProps) {
               <th>UDISE Code</th>
               <th>School Name</th>
               <th>Block</th>
-              <th>Category</th>
-              <th>Management</th>
+              {/* Added Sync Status Column */}
+              <th>Sync Status</th> 
               <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {schools.map((school) => (
-              <tr key={school.school_id}>
+              <tr key={school.udise_code}>
                 <td>
                   <span className="font-mono text-sm font-medium text-primary">
                     {school.udise_code}
@@ -70,24 +48,44 @@ export function SchoolsTable({ schools, isLoading }: SchoolsTableProps) {
                   </div>
                 </td>
                 <td className="text-muted-foreground">{school.block_name || '-'}</td>
+                
+                {/* Status Check: If school_id exists, Level 2 is done */}
                 <td>
-                  {school.category_name && (
-                    <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-                      {school.category_name}
+                  {school.school_id ? (
+                    <span className="inline-flex items-center rounded-full bg-success/10 px-2 py-1 text-xs font-medium text-success">
+                      Synced
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-warning/10 px-2 py-1 text-xs font-medium text-warning">
+                      Directory Only
                     </span>
                   )}
                 </td>
-                <td className="text-muted-foreground">{school.management_type || '-'}</td>
+
                 <td className="text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => navigate(`/school/${school.school_id}`)}
-                    className="gap-1.5"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Report
-                  </Button>
+                  {school.school_id ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate(`/school/${school.school_id}`)}
+                      className="gap-1.5"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Report
+                    </Button>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="sm" variant="ghost" disabled className="opacity-50 cursor-not-allowed gap-1.5">
+                          <AlertTriangle className="h-4 w-4" />
+                          Not Synced
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Run "Sync Details" in Admin Sync to view this report.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </td>
               </tr>
             ))}

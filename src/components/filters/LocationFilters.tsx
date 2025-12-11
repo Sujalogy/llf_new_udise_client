@@ -17,8 +17,8 @@ interface LocationFiltersProps {
   selectedState: string;
   selectedDistrict: string;
   onYearChange?: (yearId: string) => void;
-  onStateChange: (stateCode: string) => void;
-  onDistrictChange: (districtCode: string) => void;
+  onStateChange: (stcode11: string) => void;
+  onDistrictChange: (dtcode11: string) => void;
   showYear?: boolean;
   isLoading?: boolean;
 }
@@ -48,8 +48,9 @@ export function LocationFilters({
               </SelectTrigger>
               <SelectContent className="bg-popover">
                 {years.map((year) => (
-                  <SelectItem key={year.yearId} value={year.yearId}>
-                    {year.yearName}
+                  // Ensure yearId is treated as string for Select value if needed, or update props
+                  <SelectItem key={year.yearId} value={String(year.yearId)}>
+                    {year.yearDesc}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -69,8 +70,8 @@ export function LocationFilters({
             </SelectTrigger>
             <SelectContent className="bg-popover">
               {states.map((state) => (
-                <SelectItem key={state.stateCode} value={state.stateCode}>
-                  {state.stateName}
+                <SelectItem key={state.stcode11} value={state.stcode11}>
+                  {state.stname}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -89,8 +90,8 @@ export function LocationFilters({
             </SelectTrigger>
             <SelectContent className="bg-popover">
               {districts.map((district) => (
-                <SelectItem key={district.districtCode} value={district.districtCode}>
-                  {district.districtName}
+                <SelectItem key={district.dtcode11} value={district.dtcode11}>
+                  {district.dtname}
                 </SelectItem>
               ))}
             </SelectContent>

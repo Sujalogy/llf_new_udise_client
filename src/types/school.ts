@@ -1,16 +1,17 @@
 export interface Year {
-  yearId: string;
+  yearDesc: number;
+  yearId: number;
   yearName: string;
 }
 
 export interface State {
-  stateCode: string;
-  stateName: string;
+  stcode11: string;
+  stname: string;
 }
 
 export interface District {
-  districtCode: string;
-  districtName: string;
+  dtcode11: string;
+  dtname: string;
 }
 
 export interface School {
@@ -107,6 +108,6 @@ export interface SyncStatus {
 
 export interface FilterState {
   yearId: string;
-  stateCode: string;
-  districtCode: string;
+  stcode11: string;
+  dtcode11: string;
 }

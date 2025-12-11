@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Loader2, List, Database, FileText } from 'lucide-react';
 import { LocationFilters } from '../components/filters/LocationFilters';
 import { api } from '../lib/api';
 import { toast } from '../hooks/use-toast';
@@ -15,48 +15,41 @@ export default function AdminSync() {
   const [selectedState, setSelectedState] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
 
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ status: 'idle' });
+  // Statuses for 3 Steps
+  const [directoryStatus, setDirectoryStatus] = useState<SyncStatus>({ status: 'idle' });
+  const [gisStatus, setGisStatus] = useState<SyncStatus>({ status: 'idle' });
+  const [detailsStatus, setDetailsStatus] = useState<SyncStatus>({ status: 'idle' }); // <--- NEW
+  
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch years on mount
+  // Fetch years
   useEffect(() => {
     async function fetchYears() {
       try {
         const yearsData = await api.getYears();
         setYears(yearsData);
       } catch (error) {
-        // Demo data
-        setYears([
-          { yearId: '2024', yearName: '2024-25' },
-          { yearId: '2023', yearName: '2023-24' },
-          { yearId: '2022', yearName: '2022-23' },
-        ]);
+        console.error("Failed to fetch years", error);
+        setYears([]);
       }
     }
     fetchYears();
   }, []);
 
-  // Fetch states when year changes
+  // Fetch states
   useEffect(() => {
     if (!selectedYear) {
       setStates([]);
       return;
     }
-
     async function fetchStates() {
       setIsLoading(true);
       try {
         const statesData = await api.getMasterStates(selectedYear);
         setStates(statesData);
       } catch (error) {
-        // Demo data
-        setStates([
-          { stateCode: '09', stateName: 'Uttar Pradesh' },
-          { stateCode: '27', stateName: 'Maharashtra' },
-          { stateCode: '23', stateName: 'Madhya Pradesh' },
-          { stateCode: '08', stateName: 'Rajasthan' },
-          { stateCode: '10', stateName: 'Bihar' },
-        ]);
+        console.error("Failed to fetch states", error);
+        setStates([]);
       } finally {
         setIsLoading(false);
       }
@@ -67,26 +60,20 @@ export default function AdminSync() {
     setDistricts([]);
   }, [selectedYear]);
 
-  // Fetch districts when state changes
+  // Fetch districts
   useEffect(() => {
     if (!selectedState || !selectedYear) {
       setDistricts([]);
       return;
     }
-
     async function fetchDistricts() {
       setIsLoading(true);
       try {
         const districtsData = await api.getMasterDistricts(selectedState, selectedYear);
         setDistricts(districtsData);
       } catch (error) {
-        // Demo data
-        setDistricts([
-          { districtCode: '0901', districtName: 'Lucknow' },
-          { districtCode: '0902', districtName: 'Kanpur Nagar' },
-          { districtCode: '0903', districtName: 'Varanasi' },
-          { districtCode: '0904', districtName: 'Agra' },
-        ]);
+        console.error("Failed to fetch districts", error);
+        setDistricts([]);
       } finally {
         setIsLoading(false);
       }
@@ -95,65 +82,81 @@ export default function AdminSync() {
     setSelectedDistrict('');
   }, [selectedState, selectedYear]);
 
-  const handleSync = async () => {
-    if (!selectedState || !selectedDistrict) {
-      toast({
-        title: 'Selection Required',
-        description: 'Please select both State and District before syncing.',
-        variant: 'destructive',
-      });
+  // Reset statuses on change
+  useEffect(() => {
+    setDirectoryStatus({ status: 'idle' });
+    setGisStatus({ status: 'idle' });
+    setDetailsStatus({ status: 'idle' });
+  }, [selectedYear, selectedState, selectedDistrict]);
+
+  // STEP 1: Sync Directory
+  const handleSyncDirectory = async () => {
+    if (!selectedYear || !selectedState || !selectedDistrict) {
+      toast({ title: 'Selection Required', description: 'Please select Year, State, and District.', variant: 'destructive' });
       return;
     }
-
-    setSyncStatus({ status: 'syncing', message: 'Fetching school data from GIS server...' });
-
+    setDirectoryStatus({ status: 'syncing', message: 'Fetching school list from UDISE+...' });
     try {
-      const result = await api.syncSchools(selectedState, selectedDistrict);
-
+      const result = await api.syncDirectory(selectedYear, selectedState, selectedDistrict);
       if (result.success) {
-        setSyncStatus({
-          status: 'success',
-          message: `Successfully synced ${result.count} schools.`,
-        });
-        toast({
-          title: 'Sync Complete',
-          description: `${result.count} schools have been synced to the database.`,
-        });
+        setDirectoryStatus({ status: 'success', message: `Found ${result.count} schools.` });
+        toast({ title: 'Directory Synced', description: `Successfully listed ${result.count} schools.` });
       } else {
         throw new Error(result.message);
       }
     } catch (error) {
-      // Demo success for preview
-      setSyncStatus({
-        status: 'success',
-        message: 'Successfully synced 247 schools.',
-      });
-      toast({
-        title: 'Sync Complete',
-        description: '247 schools have been synced to the database.',
-      });
+      setDirectoryStatus({ status: 'error', message: 'Failed to fetch directory.' });
+      toast({ title: 'Sync Failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
     }
   };
 
+  // STEP 2: Sync GIS Data
+  const handleSyncGis = async () => {
+    setGisStatus({ status: 'syncing', message: 'Fetching details from GIS server...' });
+    try {
+      const result = await api.syncSchools(selectedState, selectedDistrict);
+      if (result.success) {
+        setGisStatus({ status: 'success', message: `Synced GIS for ${result.count} schools.` });
+        toast({ title: 'GIS Sync Complete', description: `Updated coordinates for ${result.count} schools.` });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      setGisStatus({ status: 'error', message: 'GIS Sync failed.' });
+      toast({ title: 'Sync Failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
+    }
+  };
+
+  // STEP 3: Sync Full Details (NEW)
+  const handleSyncDetails = async () => {
+    setDetailsStatus({ status: 'syncing', message: 'Fetching detailed reports (Profile, Facilities, etc.)...' });
+    try {
+      // Calls the new backend endpoint that aggregates 8+ API calls per school
+      const result = await api.syncSchoolDetails(selectedYear, selectedState, selectedDistrict);
+      if (result.success) {
+        setDetailsStatus({ status: 'success', message: `Synced details for ${result.count} schools.` });
+        toast({ title: 'Deep Sync Complete', description: `Full details fetched for ${result.count} schools.` });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      setDetailsStatus({ status: 'error', message: 'Detail Sync failed.' });
+      toast({ title: 'Sync Failed', description: error instanceof Error ? error.message : 'Unknown error', variant: 'destructive' });
+    }
+  };
+
+  const isStep1Complete = directoryStatus.status === 'success';
+
   return (
-    <div className="animate-fade-in">
-      <header className="page-header">
+    <div className="animate-fade-in max-w-6xl mx-auto">
+      <header className="page-header mb-8">
         <h1 className="page-title">Admin Sync</h1>
         <p className="page-description">
-          Fetch school data from the GIS server and sync to the local database.
+          Synchronize school data in three stages: Directory, GIS Coordinates, and Detailed Reports.
         </p>
       </header>
 
-      {/* Workflow Info */}
-      <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 p-4">
-        <h3 className="font-medium text-foreground">Step 1: Fetch & Sync</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Select an academic year, state, and district. Then click "Start Sync" to fetch all schools
-          (including UDISE codes) from the GIS portal and save them to your local database.
-        </p>
-      </div>
-
-      {/* Filters */}
+      {/* Global Filters */}
       <LocationFilters
         years={years}
         states={states}
@@ -168,101 +171,99 @@ export default function AdminSync() {
         isLoading={isLoading}
       />
 
-      {/* Sync Button */}
-      <div className="mt-6 flex items-center gap-4">
-        <Button
-          onClick={handleSync}
-          disabled={!selectedDistrict || syncStatus.status === 'syncing'}
-          className="gap-2"
-          size="lg"
-        >
-          {syncStatus.status === 'syncing' ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Syncing...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-5 w-5" />
-              Start Sync
-            </>
-          )}
-        </Button>
-
-        {/* Status Indicator */}
-        {syncStatus.status !== 'idle' && (
-          <div
-            className={
-              syncStatus.status === 'syncing'
-                ? 'sync-status-pending'
-                : syncStatus.status === 'success'
-                ? 'sync-status-success'
-                : 'sync-status-error'
-            }
-          >
-            {syncStatus.status === 'syncing' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {syncStatus.status === 'success' && <CheckCircle2 className="h-3.5 w-3.5" />}
-            {syncStatus.status === 'error' && <AlertCircle className="h-3.5 w-3.5" />}
-            {syncStatus.message}
+      <div className="mt-8 grid gap-6 md:grid-cols-3">
+        
+        {/* PANEL 1: Directory Sync */}
+        <div className="rounded-lg border border-border bg-card p-6 shadow-sm flex flex-col">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <List className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Step 1: Directory</h3>
+              <p className="text-xs text-muted-foreground">Get School List</p>
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* Sync History / Recent Syncs */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Recent Sync Operations</h2>
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>State</th>
-                <th>District</th>
-                <th>Schools Synced</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="text-muted-foreground">2024-12-11 14:32</td>
-                <td>Uttar Pradesh</td>
-                <td>Lucknow</td>
-                <td className="font-mono">247</td>
-                <td>
-                  <span className="sync-status-success">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Complete
-                  </span>
-                </td>
-              </tr>
-              <tr>
-                <td className="text-muted-foreground">2024-12-10 09:15</td>
-                <td>Maharashtra</td>
-                <td>Mumbai Suburban</td>
-                <td className="font-mono">312</td>
-                <td>
-                  <span className="sync-status-success">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Complete
-                  </span>
-                </td>
-              </tr>
-              <tr>
-                <td className="text-muted-foreground">2024-12-09 16:45</td>
-                <td>Rajasthan</td>
-                <td>Jaipur</td>
-                <td className="font-mono">189</td>
-                <td>
-                  <span className="sync-status-success">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Complete
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <p className="text-sm text-muted-foreground mb-6 flex-1">
+            Fetch master list of UDISE codes for <strong>{selectedYear || 'selected year'}</strong>.
+          </p>
+          <Button 
+            onClick={handleSyncDirectory}
+            disabled={!selectedDistrict || directoryStatus.status === 'syncing'}
+            className="w-full mt-auto"
+          >
+            {directoryStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Fetching...</> : 'Fetch List'}
+          </Button>
+          <StatusMessage status={directoryStatus} />
         </div>
+
+        {/* PANEL 2: GIS Sync */}
+        <div className={`rounded-lg border border-border bg-card p-6 shadow-sm flex flex-col transition-opacity ${!isStep1Complete ? 'opacity-50' : 'opacity-100'}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center">
+              <Database className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Step 2: GIS Data</h3>
+              <p className="text-xs text-muted-foreground">Get Coordinates</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6 flex-1">
+            Fetch Latitude, Longitude & basic info from GIS Server.
+          </p>
+          <Button 
+            onClick={handleSyncGis}
+            disabled={!isStep1Complete || gisStatus.status === 'syncing'}
+            variant="secondary"
+            className="w-full mt-auto"
+          >
+            {gisStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Syncing...</> : 'Sync GIS'}
+          </Button>
+          <StatusMessage status={gisStatus} />
+        </div>
+
+        {/* PANEL 3: Detail Sync (NEW) */}
+        <div className={`rounded-lg border border-border bg-card p-6 shadow-sm flex flex-col transition-opacity ${!isStep1Complete ? 'opacity-50' : 'opacity-100'}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-warning" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Step 3: Details</h3>
+              <p className="text-xs text-muted-foreground">Get Full Reports</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6 flex-1">
+            Fetch Profile, Facilities, Teachers, Enrolment & Social Data.
+          </p>
+          <Button 
+            onClick={handleSyncDetails}
+            disabled={!isStep1Complete || detailsStatus.status === 'syncing'}
+            variant="outline"
+            className="w-full mt-auto border-warning/50 hover:bg-warning/5 text-warning-foreground"
+          >
+            {detailsStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Fetching...</> : <p className='text-gray-600'>'Sync Details'</p>}
+          </Button>
+          <StatusMessage status={detailsStatus} />
+        </div>
+
       </div>
+    </div>
+  );
+}
+
+// Helper Component for consistent status messages
+function StatusMessage({ status }: { status: SyncStatus }) {
+  if (status.status === 'idle') return null;
+  
+  return (
+    <div className={`mt-3 flex items-center gap-2 text-xs p-2 rounded-md ${
+      status.status === 'success' ? 'bg-success/10 text-success' : 
+      status.status === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'
+    }`}>
+      {status.status === 'success' ? <CheckCircle2 className="h-3 w-3" /> : 
+       status.status === 'error' ? <AlertCircle className="h-3 w-3" /> : null}
+      <span className="truncate" title={status.message}>{status.message}</span>
     </div>
   );
 }

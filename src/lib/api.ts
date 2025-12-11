@@ -10,9 +10,10 @@ import type {
   ReportCard,
   DashboardStats,
   StateWiseStats,
+  SyncStatus, // Ensure this is exported from types/school.ts
 } from '../types/school';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'http://localhost:3000/api';
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -29,83 +30,73 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return response.json();
 }
 
-// Metadata & Filter APIs
 export const api = {
-  // Years
+  // ... existing metadata & list APIs ...
   getYears: () => fetchApi<Year[]>('/years'),
-
-  // Master Location APIs (for Admin Sync - shows ALL possible locations)
-  getMasterStates: (yearId: string) => fetchApi<State[]>(`/states?yearId=${yearId}`),
+  getMasterStates: (yearId: string) => fetchApi<State[]>('/locations/master/states'),
   getMasterDistricts: (stateCode: string, yearId: string) =>
-    fetchApi<District[]>(`/districts?stateCode=${stateCode}&yearId=${yearId}`),
-
-  // Synced Location APIs (for My Schools - shows only synced locations)
+    fetchApi<District[]>(`/locations/master/districts/${stateCode}`),
   getSyncedStates: () => fetchApi<State[]>('/locations/synced/states'),
   getSyncedDistricts: (stateCode: string) =>
-    fetchApi<District[]>(`/locations/synced/districts?stateCode=${stateCode}`),
-
-  // Categories and Managements
+    fetchApi<District[]>(`/locations/synced/districts/${stateCode}`),
   getCategories: () => fetchApi<{ catId: string; category: string }[]>('/categories'),
-  getManagements: () => fetchApi<{ managementId: string; management: string }[]>('/managements'),
-
-  // School Search & Lists
-  getUdiseList: (stcode: string, dtcode: string, page = 1, limit = 50) =>
-    fetchApi<{ data: School[]; total: number; page: number; totalPages: number }>(
-      `/udise-list?stcode=${stcode}&dtcode=${dtcode}&page=${page}&limit=${limit}`
+  getManagements: () => Promise.resolve([]),
+  
+  getUdiseList: (stcode: string, dtcode: string, page = 1, limit = 100) =>
+    fetchApi<{ 
+      data: School[]; 
+      meta: { page: number; limit: number; count: number } 
+    }>(
+      // highlight-next-line
+      `/schools/list?stcode11=${stcode}&dtcode11=${dtcode}&page=${page}&limit=${limit}`
     ),
-
   searchSchools: (searchType: number, searchParam: string) =>
-    fetchApi<School[]>(`/search-schools?searchType=${searchType}&searchParam=${searchParam}`),
+    fetchApi<School[]>(`/schools/search?searchType=${searchType}&searchParam=${searchParam}`),
 
-  // School 360 Reports
-  getSchoolProfile: (schoolId: string) =>
-    fetchApi<SchoolProfile>(`/school/profile?schoolId=${schoolId}`),
-  getSchoolFacility: (schoolId: string) =>
-    fetchApi<SchoolFacility>(`/school/facility?schoolId=${schoolId}`),
-  getSocialData: (schoolId: string, flag: number) =>
-    fetchApi<SocialData>(`/getSocialData?schoolId=${schoolId}&flag=${flag}`),
-  getEnrolmentTeacher: (schoolId: string) =>
-    fetchApi<TeacherStats>(`/school-statistics/enrolment-teacher?schoolId=${schoolId}`),
-  getReportCard: (schoolId: string) =>
-    fetchApi<ReportCard>(`/school/report-card?schoolId=${schoolId}`),
+  getSchoolProfile: (schoolId: string) => fetchApi<SchoolProfile>(`/schools/profile/${schoolId}`),
+  getSchoolFacility: (schoolId: string) => fetchApi<SchoolFacility>(`/schools/facility/${schoolId}`),
+  getSocialData: (schoolId: string, flag: number) => fetchApi<SocialData>(`/schools/social-data/${schoolId}?flag=${flag}`),
+  getEnrolmentTeacher: (schoolId: string) => fetchApi<TeacherStats>(`/schools/stats/${schoolId}`),
+  getReportCard: (schoolId: string) => Promise.reject("Endpoint not implemented"),
 
-  // Admin Data Sync
+  // --- ADMIN SYNC ACTIONS ---
+
+  // Step 1: Sync Directory (Master List)
+  syncDirectory: (yearId: string, stcode11: string, dtcode11: string) =>
+    fetchApi<{ success: boolean; count: number; message: string }>('/schools/sync-directory', {
+      method: 'POST',
+      body: JSON.stringify({ yearId, stcode11, dtcode11 }),
+    }),
+
+  // Step 2: Sync GIS Data (Coordinates)
   syncSchools: (stcode11: string, dtcode11: string) =>
-    fetchApi<{ success: boolean; count: number; message: string }>('/fetch/schools', {
+    fetchApi<{ success: boolean; count: number; message: string }>('/schools/sync', {
       method: 'POST',
       body: JSON.stringify({ stcode11, dtcode11 }),
     }),
 
-  syncByObjectIds: (objectIds: number[], stcode11: string, dtcode11: string) =>
-    fetchApi<{ success: boolean; count: number }>('/fetch/objectids', {
+  // Step 3: Sync Full Details (Profile, Facilities, Stats - NEW)
+  syncSchoolDetails: (yearId: string, stcode11: string, dtcode11: string) =>
+    fetchApi<{ success: boolean; count: number; message: string }>('/schools/sync-details', {
       method: 'POST',
-      body: JSON.stringify({ objectIds, stcode11, dtcode11 }),
+      body: JSON.stringify({ yearId, stcode11, dtcode11 }),
     }),
 
-  // Dashboard Analytics
-  getStats: () => fetchApi<DashboardStats>('/stats'),
-  getStateWiseStats: () => fetchApi<StateWiseStats[]>('/stats/state-wise'),
-
-  // Export
+  // ... stats & export ...
+  getStats: () => Promise.resolve({ totalSchools: 0, totalStudents: 0, totalTeachers: 0, syncedStates: 0, syncedDistricts: 0 }),
+  getStateWiseStats: () => Promise.resolve([]),
+  
   exportSchools: async (stcode: string, dtcode: string, format: 'csv' | 'json') => {
     const response = await fetch(
       `${API_BASE}/schools/export/list?stcode11=${stcode}&dtcode11=${dtcode}&format=${format}`,
       { headers: { 'Content-Type': 'application/json' } }
     );
-
-    if (!response.ok) {
-      throw new Error('Export failed');
-    }
-
+    if (!response.ok) throw new Error('Export failed');
     const blob = await response.blob();
-    const contentDisposition = response.headers.get('content-disposition');
-    const filenameMatch = contentDisposition?.match(/filename="?(.+)"?/);
-    const filename = filenameMatch?.[1] || `schools_list.${format}`;
-
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = `schools_list.${format}`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);

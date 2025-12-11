@@ -20,21 +20,8 @@ export default function Dashboard() {
         setStateStats(stateData);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
-        // Set demo data for preview
-        setStats({
-          totalSchools: 14847,
-          totalStudents: 2456789,
-          totalTeachers: 89234,
-          syncedStates: 12,
-          syncedDistricts: 156,
-        });
-        setStateStats([
-          { state_name: 'Uttar Pradesh', school_count: 3245, student_count: 567890 },
-          { state_name: 'Maharashtra', school_count: 2876, student_count: 445678 },
-          { state_name: 'Madhya Pradesh', school_count: 2134, student_count: 334567 },
-          { state_name: 'Rajasthan', school_count: 1987, student_count: 289456 },
-          { state_name: 'Bihar', school_count: 1756, student_count: 267890 },
-        ]);
+        setStats(null);
+        setStateStats([]);
       } finally {
         setIsLoading(false);
       }
@@ -104,22 +91,30 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {stateStats.map((state) => (
-                <tr key={state.state_name}>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{state.state_name}</span>
-                    </div>
-                  </td>
-                  <td className="text-right font-mono">
-                    {state.school_count.toLocaleString()}
-                  </td>
-                  <td className="text-right font-mono">
-                    {state.student_count.toLocaleString()}
+              {stateStats.length > 0 ? (
+                stateStats.map((state) => (
+                  <tr key={state.state_name}>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{state.state_name}</span>
+                      </div>
+                    </td>
+                    <td className="text-right font-mono">
+                      {state.school_count.toLocaleString()}
+                    </td>
+                    <td className="text-right font-mono">
+                      {state.student_count.toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="text-center py-4 text-muted-foreground">
+                    No state data available
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
