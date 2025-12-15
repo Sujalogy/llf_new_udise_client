@@ -1,152 +1,278 @@
 import { useEffect, useState } from 'react';
-import { School, Users, GraduationCap, MapPin, Building2 } from 'lucide-react';
-import type { DashboardStats, StateWiseStats } from '../types/school';
+import { 
+  Users, GraduationCap, School, Database, 
+  ArrowRight, Activity, PieChart as PieIcon, BarChart3 
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Progress } from '../components/ui/progress';
+import { 
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend 
+} from 'recharts';
 import { api } from '../lib/api';
-import { StatCard } from '../components/ui/stat-card';
+import type { DashboardData } from '../types/school';
+
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [stateStats, setStateStats] = useState<StateWiseStats[]>([]);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchDashboardData() {
+    async function load() {
       try {
-        const [statsData, stateData] = await Promise.all([
-          api.getStats(),
-          api.getStateWiseStats(),
-        ]);
-        setStats(statsData);
-        setStateStats(stateData);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-        setStats(null);
-        setStateStats([]);
+        const result = await api.getDashboardStats();
+        setData(result);
+      } catch (e) {
+        console.error(e);
       } finally {
         setIsLoading(false);
       }
     }
-
-    fetchDashboardData();
+    load();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <DashboardSkeleton />;
+  if (!data) return <div>No data available</div>;
+
+  const { sync, enrollment, management, category, states } = data;
+
+  // Safe Number Parsing
+  const num = (v: string | number) => Number(v) || 0;
+
+  // Calculate percentages for Sync Funnel
+  const masterCount = num(sync.total_master_ids);
+  const dirCount = num(sync.synced_directory);
+  const detailCount = num(sync.synced_details);
+  
+  const dirPercent = masterCount ? (dirCount / masterCount) * 100 : 0;
+  const detailPercent = masterCount ? (detailCount / masterCount) * 100 : 0;
+
+  // Prepare Chart Data
+  const genderData = [
+    { name: 'Boys', value: num(enrollment.total_boys), color: '#3b82f6' },
+    { name: 'Girls', value: num(enrollment.total_girls), color: '#ec4899' },
+  ];
+
+  const ptrGlobal = num(enrollment.total_teachers) ? Math.round(num(enrollment.total_students) / num(enrollment.total_teachers)) : 0;
 
   return (
-    <div className="animate-fade-in">
-      <header className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-description">
-          Overview of school data synchronization status and statistics.
-        </p>
-      </header>
+    <div className="animate-fade-in pb-10 space-y-8">
+      {/* HEADER */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Real-time overview of school data synchronization and analytics.</p>
+      </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Schools"
-          value={stats?.totalSchools || 0}
+      {/* 1. SYNC FUNNEL CARDS */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <SyncCard 
+          title="Total Object IDs" 
+          value={masterCount} 
+          subtitle="Potential Schools in Master"
+          icon={Database}
+          color="text-slate-500"
+          bg="bg-slate-100"
+        />
+        <SyncCard 
+          title="Directory Fetched" 
+          value={dirCount} 
+          subtitle={`${Math.round(dirPercent)}% of Master Synced`}
           icon={School}
-          description="Synced in database"
+          color="text-blue-500"
+          bg="bg-blue-100"
+          progress={dirPercent}
         />
-        <StatCard
-          title="Total Students"
-          value={stats?.totalStudents || 0}
-          icon={Users}
-          description="Enrolled across all schools"
-        />
-        <StatCard
-          title="Total Teachers"
-          value={stats?.totalTeachers || 0}
-          icon={GraduationCap}
-          description="Teaching staff"
-        />
-        <StatCard
-          title="Synced Districts"
-          value={stats?.syncedDistricts || 0}
-          icon={MapPin}
-          description={`Across ${stats?.syncedStates || 0} states`}
+        <SyncCard 
+          title="Fully Detailed" 
+          value={detailCount} 
+          subtitle={`${Math.round(detailPercent)}% have Full Reports`}
+          icon={Activity}
+          color="text-green-500"
+          bg="bg-green-100"
+          progress={detailPercent}
         />
       </div>
 
-      {/* State-wise Stats */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">State-wise Distribution</h2>
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>State</th>
-                <th className="text-right">Schools</th>
-                <th className="text-right">Students</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stateStats.length > 0 ? (
-                stateStats.map((state) => (
-                  <tr key={state.state_name}>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{state.state_name}</span>
-                      </div>
-                    </td>
-                    <td className="text-right font-mono">
-                      {state.school_count.toLocaleString()}
-                    </td>
-                    <td className="text-right font-mono">
-                      {state.student_count.toLocaleString()}
-                    </td>
-                  </tr>
-                ))
-              ) : (
+      {/* 2. ENROLLMENT & PTR */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Students" value={num(enrollment.total_students).toLocaleString()} icon={Users} />
+        <StatCard title="Total Teachers" value={num(enrollment.total_teachers).toLocaleString()} icon={GraduationCap} />
+        <StatCard title="Global PTR" value={`${ptrGlobal}:1`} icon={BarChart3} desc="Student-Teacher Ratio" />
+        <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col justify-center">
+           <div className="text-sm font-medium text-muted-foreground mb-2">Gender Parity</div>
+           <div className="h-4 flex w-full rounded-full overflow-hidden">
+             <div style={{ width: `${(num(enrollment.total_boys)/num(enrollment.total_students))*100}%` }} className="bg-blue-500" />
+             <div style={{ width: `${(num(enrollment.total_girls)/num(enrollment.total_students))*100}%` }} className="bg-pink-500" />
+           </div>
+           <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+             <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"/> {num(enrollment.total_boys).toLocaleString()} Boys</span>
+             <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-pink-500"/> {num(enrollment.total_girls).toLocaleString()} Girls</span>
+           </div>
+        </div>
+      </div>
+
+      {/* 3. CHARTS ROW */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Category Distribution */}
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>School Categories</CardTitle>
+            <CardDescription>Distribution by education level</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={category.slice(0, 6)} layout="vertical" margin={{ left: 20 }}>
+                <XAxis type="number" hide />
+                <YAxis dataKey="category" type="category" width={100} tick={{fontSize: 11}} interval={0} />
+                <Tooltip cursor={{fill: 'transparent'}} />
+                <Bar dataKey="count" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                  {category.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Management Distribution */}
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Management Type</CardTitle>
+            <CardDescription>Who runs the schools?</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={management}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="count"
+                  nameKey="management_type"
+                >
+                  {management.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend layout="vertical" verticalAlign="middle" align="right" />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 4. STATE PERFORMANCE TABLE */}
+      <Card>
+        <CardHeader>
+          <CardTitle>State-wise Performance</CardTitle>
+          <CardDescription>Detailed breakdown of fetched data by state</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-muted-foreground uppercase bg-muted/50">
                 <tr>
-                  <td colSpan={3} className="text-center py-4 text-muted-foreground">
-                    No state data available
-                  </td>
+                  <th className="px-4 py-3 rounded-tl-lg">State Name</th>
+                  <th className="px-4 py-3 text-right">Schools Fetched</th>
+                  <th className="px-4 py-3 text-right">Total Students</th>
+                  <th className="px-4 py-3 text-right">Teachers</th>
+                  <th className="px-4 py-3 text-right rounded-tr-lg">PTR</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {states.map((st) => {
+                  const ptr = num(st.teacher_count) ? Math.round(num(st.student_count) / num(st.teacher_count)) : 0;
+                  return (
+                    <tr key={st.state_name} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3 font-medium">{st.state_name}</td>
+                      <td className="px-4 py-3 text-right">{num(st.school_count).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right">{num(st.student_count).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right">{num(st.teacher_count).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          ptr > 35 ? 'bg-red-100 text-red-700' : 
+                          ptr > 25 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                        }`}>
+                          {ptr}:1
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-      {/* Quick Actions */}
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h3 className="text-lg font-semibold text-foreground">Sync New Data</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Fetch school data from the GIS server for new states and districts.
-          </p>
-          <a
-            href="/admin-sync"
-            className="mt-4 inline-flex items-center text-sm font-medium text-primary hover:underline"
-          >
-            Go to Admin Sync →
-          </a>
+// --- SUB COMPONENTS ---
+
+function SyncCard({ title, value, subtitle, icon: Icon, color, bg, progress }: any) {
+  return (
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className={`p-3 rounded-xl ${bg} ${color}`}>
+            <Icon className="h-6 w-6" />
+          </div>
+          {progress !== undefined && (
+            <span className="text-xs font-bold bg-muted px-2 py-1 rounded-full">
+              {Math.round(progress)}%
+            </span>
+          )}
         </div>
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h3 className="text-lg font-semibold text-foreground">Browse Schools</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Explore synced schools and view detailed reports for each school.
-          </p>
-          <a
-            href="/my-schools"
-            className="mt-4 inline-flex items-center text-sm font-medium text-primary hover:underline"
-          >
-            Go to My Schools →
-          </a>
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <h3 className="text-3xl font-bold mt-1">{value.toLocaleString()}</h3>
+          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
         </div>
+        {progress !== undefined && (
+          <Progress value={progress} className="h-1 mt-4" />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function StatCard({ title, value, icon: Icon, desc }: any) {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center gap-4">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <h4 className="text-2xl font-bold">{value}</h4>
+            {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8 animate-pulse">
+      <div className="h-8 w-48 bg-muted rounded" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {[1,2,3].map(i => <div key={i} className="h-40 bg-muted rounded-xl" />)}
       </div>
+      <div className="grid gap-4 md:grid-cols-4">
+        {[1,2,3,4].map(i => <div key={i} className="h-24 bg-muted rounded-xl" />)}
+      </div>
+      <div className="h-96 bg-muted rounded-xl" />
     </div>
   );
 }

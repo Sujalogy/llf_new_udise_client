@@ -112,3 +112,25 @@ export interface FilterState {
   stcode11: string;
   dtcode11: string;
 }
+
+export interface DashboardData {
+  sync: {
+    total_master_ids: string | number;
+    synced_directory: string | number;
+    synced_details: string | number;
+  };
+  enrollment: {
+    total_students: string | number;
+    total_boys: string | number;
+    total_girls: string | number;
+    total_teachers: string | number;
+  };
+  management: { management_type: string; count: string | number }[];
+  category: { category: string; count: string | number }[];
+  states: {
+    state_name: string;
+    school_count: string | number;
+    student_count: string | number;
+    teacher_count: string | number;
+  }[];
+}

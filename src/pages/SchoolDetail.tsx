@@ -1,494 +1,384 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  Building2,
-  MapPin,
-  Users,
-  GraduationCap,
-  CheckCircle,
-  XCircle,
+  ArrowLeft, MapPin, Building2, Users, GraduationCap, 
+  CheckCircle2, XCircle, School, BookOpen, UserCircle, Droplets, Zap, Accessibility
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { Progress } from '../components/ui/progress';
 import { api } from '../lib/api';
-import type {
-  SchoolProfile,
-  SchoolFacility,
-  SocialData,
-  TeacherStats,
-  ReportCard,
-} from '../types/school';
+// Use Recharts for a beautiful chart
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export default function SchoolDetail() {
   const { schoolId } = useParams<{ schoolId: string }>();
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState<SchoolProfile | null>(null);
-  const [facility, setFacility] = useState<SchoolFacility | null>(null);
-  const [socialData, setSocialData] = useState<SocialData | null>(null);
-  const [teacherStats, setTeacherStats] = useState<TeacherStats | null>(null);
-  const [reportCard, setReportCard] = useState<ReportCard | null>(null);
+  const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('profile');
 
   useEffect(() => {
     if (!schoolId) return;
-
-    async function fetchSchoolData() {
+    async function fetchData() {
       setIsLoading(true);
       try {
-        const profileData = await api.getSchoolProfile(schoolId!);
-        setProfile(profileData);
+        const result = await api.getLocalSchoolDetails(schoolId!);
+        setData(result);
       } catch (error) {
-        console.error("Failed to fetch school profile", error);
-        setProfile(null);
+        console.error("Failed to fetch local details", error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
-
-    fetchSchoolData();
+    fetchData();
   }, [schoolId]);
-
-  const loadTabData = async (tab: string) => {
-    if (!schoolId) return;
-
-    try {
-      switch (tab) {
-        case 'facility':
-          if (!facility) {
-            const data = await api.getSchoolFacility(schoolId);
-            setFacility(data);
-          }
-          break;
-        case 'social':
-          if (!socialData) {
-            const data = await api.getSocialData(schoolId, 1);
-            setSocialData(data);
-          }
-          break;
-        case 'teachers':
-          if (!teacherStats) {
-            const data = await api.getEnrolmentTeacher(schoolId);
-            setTeacherStats(data);
-          }
-          break;
-        case 'report':
-          if (!reportCard) {
-            const data = await api.getReportCard(schoolId);
-            setReportCard(data);
-          }
-          break;
-      }
-    } catch (error) {
-      console.error(`Failed to fetch data for tab ${tab}`, error);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab !== 'profile') {
-      loadTabData(activeTab);
-    }
-  }, [activeTab, schoolId]);
 
   if (isLoading) {
     return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="mt-4 text-muted-foreground">Loading school details...</p>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-muted-foreground animate-pulse">Loading School Report...</p>
         </div>
       </div>
     );
   }
 
-  if (!profile) {
+  if (!data || !data.profile) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">School not found</p>
-        <Button onClick={() => navigate('/my-schools')} className="mt-4">
-          Back to My Schools
-        </Button>
+      <div className="flex h-[80vh] flex-col items-center justify-center gap-4">
+        <div className="rounded-full bg-muted p-4">
+          <School className="h-10 w-10 text-muted-foreground" />
+        </div>
+        <h2 className="text-xl font-semibold">School data not found</h2>
+        <p className="text-muted-foreground">Please sync this school in the Admin panel first.</p>
+        <Button onClick={() => navigate('/my-schools')}>Back to List</Button>
       </div>
     );
   }
 
-  const StatusBadge = ({ value }: { value: boolean | string }) => {
-    const isPositive = value === true || value === 'Available' || value === 'Yes';
-    return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-          isPositive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
-        }`}
-      >
-        {isPositive ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-        {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
-      </span>
-    );
-  };
+  const { profile, facility, social, teachers, stats } = data;
+
+  // Prepare chart data
+  const socialChartData = [
+    { name: 'General', value: social.general, color: '#94a3b8' }, // slate-400
+    { name: 'SC', value: social.caste_SC, color: '#f59e0b' },     // amber-500
+    { name: 'ST', value: social.caste_ST, color: '#10b981' },     // emerald-500
+    { name: 'OBC', value: social.OBC, color: '#3b82f6' },         // blue-500
+  ];
 
   return (
-    <div className="animate-fade-in">
-      {/* Header */}
-      <div className="mb-6 flex items-start gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/my-schools')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-              <Building2 className="h-6 w-6 text-primary" />
+    <div className="animate-fade-in pb-10 max-w-7xl mx-auto space-y-6">
+      
+      {/* 1. HERO HEADER */}
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+        <div className="flex gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate('/my-schools')} className="shrink-0 mt-1">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5 font-mono">
+                {profile.udise_code}
+              </Badge>
+              <Badge variant="secondary">{profile.school_status}</Badge>
+              <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-100">
+                {profile.year_desc}
+              </Badge>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{profile.school_name}</h1>
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
-                <span className="font-mono text-primary">{profile.udise_code}</span>
-                <span>•</span>
-                <MapPin className="h-3.5 w-3.5" />
-                {profile.district_name}, {profile.state_name}
-              </p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{profile.school_name}</h1>
+            <div className="flex items-center gap-2 mt-2 text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>
+                {profile.village ? `${profile.village}, ` : ''}
+                {profile.block_name}, {profile.district_name}, {profile.state_name}
+              </span>
             </div>
+          </div>
+        </div>
+        
+        {/* Quick Stats Box */}
+        <div className="flex gap-4 p-4 bg-card border rounded-xl shadow-sm">
+          <div className="text-center px-2">
+            <p className="text-xs text-muted-foreground uppercase font-semibold">Students</p>
+            <p className="text-2xl font-bold text-primary">{stats.students_total}</p>
+          </div>
+          <Separator orientation="vertical" className="h-10" />
+          <div className="text-center px-2">
+            <p className="text-xs text-muted-foreground uppercase font-semibold">Teachers</p>
+            <p className="text-2xl font-bold text-primary">{teachers.total_teachers}</p>
+          </div>
+          <Separator orientation="vertical" className="h-10" />
+          <div className="text-center px-2">
+            <p className="text-xs text-muted-foreground uppercase font-semibold">PTR</p>
+            <p className="text-2xl font-bold text-primary">
+              {teachers.total_teachers > 0 ? Math.round(stats.students_total / teachers.total_teachers) : 0}:1
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Workflow Info */}
-      <div className="mb-6 rounded-lg border border-success/20 bg-success/5 p-4">
-        <h3 className="font-medium text-foreground">Step 3: Live Data Reports</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          View detailed information fetched live from the UDISE+ server. Switch between tabs to
-          explore different aspects of the school.
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6 w-full justify-start bg-muted/50 p-1">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="facility">Facilities</TabsTrigger>
-          <TabsTrigger value="social">Social Data</TabsTrigger>
-          <TabsTrigger value="teachers">Teachers</TabsTrigger>
-          <TabsTrigger value="report">Report Card</TabsTrigger>
+      {/* 2. MAIN CONTENT TABS */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 space-x-6">
+          <TabLink value="overview">Overview</TabLink>
+          <TabLink value="infrastructure">Infrastructure</TabLink>
+          <TabLink value="students">Student Demographics</TabLink>
+          <TabLink value="staff">Teaching Staff</TabLink>
         </TabsList>
 
-        {/* Profile Tab */}
-        <TabsContent value="profile">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="mb-4 font-semibold text-foreground">Basic Information</h3>
-              <dl className="space-y-3">
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Category</dt>
-                  <dd className="font-medium">{profile.category_name || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Management</dt>
-                  <dd className="font-medium">{profile.management_type || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Established</dt>
-                  <dd className="font-medium">{profile.establishment_year || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Cluster</dt>
-                  <dd className="font-medium">{profile.cluster || '-'}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="mb-4 font-semibold text-foreground">Location Details</h3>
-              <dl className="space-y-3">
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Block</dt>
-                  <dd className="font-medium">{profile.block_name || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Assembly</dt>
-                  <dd className="font-medium">{profile.assembly_constituency || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Pincode</dt>
-                  <dd className="font-mono">{profile.pincode || '-'}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Coordinates</dt>
-                  <dd className="font-mono text-sm">
-                    {profile.latitude?.toFixed(4) || 0}, {profile.longitude?.toFixed(4) || 0}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Facility Tab */}
-        <TabsContent value="facility">
-          {facility ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-lg border border-border bg-card p-6">
-                <h3 className="mb-4 font-semibold text-foreground">Infrastructure</h3>
-                <dl className="space-y-3">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Classrooms</dt>
-                    <dd className="font-medium">{facility.classroom_count}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Building Status</dt>
-                    <dd className="font-medium">{facility.building_status}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Boundary Wall</dt>
-                    <dd className="font-medium">{facility.boundary_wall}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Furniture</dt>
-                    <dd className="font-medium">{facility.furniture}</dd>
-                  </div>
-                </dl>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <h3 className="mb-4 font-semibold text-foreground">Sanitation</h3>
-                <dl className="space-y-3">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Boys Toilets</dt>
-                    <dd className="font-medium">{facility.toilet_boys}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Girls Toilets</dt>
-                    <dd className="font-medium">{facility.toilet_girls}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Drinking Water</dt>
-                    <dd><StatusBadge value={facility.drinking_water} /></dd>
-                  </div>
-                </dl>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <h3 className="mb-4 font-semibold text-foreground">Amenities</h3>
-                <dl className="space-y-3">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Electricity</dt>
-                    <dd><StatusBadge value={facility.electricity} /></dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Library</dt>
-                    <dd><StatusBadge value={facility.library} /></dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Playground</dt>
-                    <dd><StatusBadge value={facility.playground} /></dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Ramp</dt>
-                    <dd><StatusBadge value={facility.ramp} /></dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="mt-4 text-muted-foreground">Loading facilities data...</p>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Social Data Tab */}
-        <TabsContent value="social">
-          {socialData ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
-                    <Users className="h-5 w-5 text-chart-1" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">SC Students</p>
-                    <p className="text-2xl font-bold">{socialData.caste_SC}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
-                    <Users className="h-5 w-5 text-chart-2" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">ST Students</p>
-                    <p className="text-2xl font-bold">{socialData.caste_ST}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-3/10">
-                    <Users className="h-5 w-5 text-chart-3" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">OBC Students</p>
-                    <p className="text-2xl font-bold">{socialData.OBC}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-4/10">
-                    <Users className="h-5 w-5 text-chart-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">EWS Students</p>
-                    <p className="text-2xl font-bold">{socialData.EWS}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                    <Users className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">General</p>
-                    <p className="text-2xl font-bold">{socialData.general}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
-                    <Users className="h-5 w-5 text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">CWSN</p>
-                    <p className="text-2xl font-bold">{socialData.CWSN}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="mt-4 text-muted-foreground">Loading social data...</p>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Teachers Tab */}
-        <TabsContent value="teachers">
-          {teacherStats ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                    <GraduationCap className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Teachers</p>
-                    <p className="text-2xl font-bold">{teacherStats.total_teachers}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
-                    <GraduationCap className="h-5 w-5 text-chart-1" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Male Teachers</p>
-                    <p className="text-2xl font-bold">{teacherStats.teachers_male}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-2/10">
-                    <GraduationCap className="h-5 w-5 text-chart-2" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Female Teachers</p>
-                    <p className="text-2xl font-bold">{teacherStats.teachers_female}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <h3 className="mb-4 font-semibold text-foreground">Pupil-Teacher Ratio</h3>
-                <dl className="space-y-3">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Primary</dt>
-                    <dd className="font-medium">{teacherStats.ptr_primary}:1</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Upper Primary</dt>
-                    <dd className="font-medium">{teacherStats.ptr_upper_primary}:1</dd>
-                  </div>
-                </dl>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
-                    <GraduationCap className="h-5 w-5 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Highly Qualified</p>
-                    <p className="text-2xl font-bold">{teacherStats.highly_qualified_count}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="mt-4 text-muted-foreground">Loading teacher statistics...</p>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Report Card Tab */}
-        <TabsContent value="report">
-          {reportCard ? (
+        <div className="mt-6">
+          {/* TAB: OVERVIEW */}
+          <TabsContent value="overview" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
-              <div className="rounded-lg border border-border bg-card p-6">
-                <h3 className="mb-4 font-semibold text-foreground">Summary</h3>
-                <dl className="space-y-3">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Total Students</dt>
-                    <dd className="font-medium">{reportCard.students_total}</dd>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    School Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <InfoRow label="Head Master" value={profile.head_master} />
+                  <Separator />
+                  <InfoRow label="Category" value={profile.category_name} />
+                  <Separator />
+                  <InfoRow label="Cluster" value={profile.cluster} />
+                  <Separator />
+                  <InfoRow label="Establishment Year" value={profile.establishment_year || 'N/A'} />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    Management & Medium
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <InfoRow label="Management" value={profile.management_type} />
+                  <Separator />
+                  <InfoRow label="Status" value={profile.school_status} />
+                  <Separator />
+                  <div className="pt-2">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Key Facilities Check</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatusBadge label="Library" active={facility.library} />
+                      <StatusBadge label="Playground" active={facility.playground} />
+                      <StatusBadge label="Electricity" active={facility.electricity} />
+                      <StatusBadge label="Water" active={facility.drinking_water} />
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Total Teachers</dt>
-                    <dd className="font-medium">{reportCard.teachers_total}</dd>
-                  </div>
-                </dl>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-6">
-                <h3 className="mb-4 font-semibold text-foreground">Facilities Status</h3>
-                <dl className="space-y-3">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Ramp Available</dt>
-                    <dd><StatusBadge value={reportCard.ramp_available} /></dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Library</dt>
-                    <dd><StatusBadge value={reportCard.library_available} /></dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Drinking Water</dt>
-                    <dd><StatusBadge value={reportCard.drinking_water_status} /></dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Playground</dt>
-                    <dd><StatusBadge value={reportCard.playground_status} /></dd>
-                  </div>
-                </dl>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* TAB: INFRASTRUCTURE */}
+          <TabsContent value="infrastructure" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-3">
+              <FacilityCard 
+                title="Classrooms" 
+                value={facility.classroom_count} 
+                icon={School} 
+                desc={`Condition: ${facility.building_status}`}
+              />
+              <FacilityCard 
+                title="Boys Toilets" 
+                value={facility.toilet_boys} 
+                icon={UserCircle} 
+                desc="Functional units"
+              />
+              <FacilityCard 
+                title="Girls Toilets" 
+                value={facility.toilet_girls} 
+                icon={UserCircle} 
+                desc="Functional units"
+              />
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Amenities Checklist</CardTitle>
+                <CardDescription>Status of essential school facilities</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <StatusRow label="Drinking Water" active={facility.drinking_water} icon={Droplets} />
+                  <StatusRow label="Electricity Connection" active={facility.electricity} icon={Zap} />
+                  <StatusRow label="Library Available" active={facility.library} icon={BookOpen} />
+                  <StatusRow label="Playground" active={facility.playground} icon={UserCircle} />
+                  <StatusRow label="Ramp for CWSN" active={facility.ramp} icon={Accessibility} />
+                  <StatusRow label="Boundary Wall" active={facility.boundary_wall !== 'Not Applicable'} icon={Building2} />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* TAB: STUDENTS */}
+          <TabsContent value="students" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-3">
+              <Card className="col-span-2">
+                <CardHeader>
+                  <CardTitle>Social Category Distribution</CardTitle>
+                  <CardDescription>Breakdown of student enrolment by caste category</CardDescription>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={socialChartData}>
+                      <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip 
+                        cursor={{ fill: 'transparent' }}
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {socialChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader><CardTitle>Special Groups</CardTitle></CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-medium">CWSN Students</span>
+                        <span className="text-sm font-bold">{social.CWSN}</span>
+                      </div>
+                      <Progress value={(social.CWSN / stats.students_total) * 100} className="h-2" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-medium">EWS Students</span>
+                        <span className="text-sm font-bold">{social.EWS}</span>
+                      </div>
+                      <Progress value={(social.EWS / stats.students_total) * 100} className="h-2" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Total Enrolment</p>
+                    <p className="text-4xl font-bold text-primary">{stats.students_total}</p>
+                    <div className="flex justify-center gap-4 mt-4 text-sm">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"/> Boys: {stats.students_boys}</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-500"/> Girls: {stats.students_girls}</span>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-              <p className="mt-4 text-muted-foreground">Loading report card...</p>
+          </TabsContent>
+
+          {/* TAB: STAFF */}
+          <TabsContent value="staff" className="space-y-6">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-sm font-medium text-muted-foreground">Total Teachers</div>
+                  <div className="text-3xl font-bold mt-2">{teachers.total_teachers}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-sm font-medium text-muted-foreground">Regular Staff</div>
+                  <div className="text-3xl font-bold mt-2 text-success">{teachers.regular}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-sm font-medium text-muted-foreground">Contract Staff</div>
+                  <div className="text-3xl font-bold mt-2 text-warning">{teachers.contract}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="text-sm font-medium text-muted-foreground">Gender Ratio</div>
+                  <div className="text-lg font-medium mt-2">
+                    {teachers.teachers_male} M / {teachers.teachers_female} F
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </TabsContent>
+          </TabsContent>
+        </div>
       </Tabs>
+    </div>
+  );
+}
+
+// --- HELPER COMPONENTS ---
+
+function TabLink({ value, children }: { value: string, children: any }) {
+  return (
+    <TabsTrigger 
+      value={value} 
+      className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 pb-3 pt-2 font-medium"
+    >
+      {children}
+    </TabsTrigger>
+  );
+}
+
+function InfoRow({ label, value }: { label: string, value: string | number | undefined }) {
+  return (
+    <div className="flex justify-between items-center py-1">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium text-right">{value || '-'}</span>
+    </div>
+  );
+}
+
+function StatusBadge({ label, active }: { label: string, active: boolean }) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${active ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+      {active ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+      <span className="text-xs font-semibold">{label}</span>
+    </div>
+  );
+}
+
+function FacilityCard({ title, value, icon: Icon, desc }: any) {
+  return (
+    <Card>
+      <CardContent className="p-6 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-3xl font-bold mt-1">{value}</p>
+          <p className="text-xs text-muted-foreground mt-1">{desc}</p>
+        </div>
+        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+          <Icon className="h-6 w-6 text-primary" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StatusRow({ label, active, icon: Icon }: any) {
+  return (
+    <div className="flex items-center gap-4 p-3 border rounded-lg">
+      <div className={`p-2 rounded-full ${active ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-medium">{label}</p>
+        <p className={`text-xs ${active ? 'text-green-600' : 'text-red-600'}`}>
+          {active ? 'Available' : 'Not Available'}
+        </p>
+      </div>
     </div>
   );
 }
