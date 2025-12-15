@@ -11,8 +11,6 @@ export default function Auth() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
-  const ALLOWED_DOMAIN = "languageandlearningfoundation.org"
-
   // Redirect if logged in
   useEffect(() => {
     if (user) navigate("/");

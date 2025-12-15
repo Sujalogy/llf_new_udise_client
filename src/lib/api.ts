@@ -15,7 +15,7 @@ import type {
   SkippedSchool, // Ensure this is exported from types/school.ts
 } from "../types/school";
 
-const API_BASE = "http://localhost:3000/api";
+export const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 async function fetchApi<T>(
   endpoint: string,

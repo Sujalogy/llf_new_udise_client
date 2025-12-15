@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { API_BASE } from "../lib/api";
 
 // 1. Declare window extension so TS knows about window.google
 declare global {
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const GOOGLE_CLIENT_ID = "744649436990-ao0of92288tsqgjar4vcfr42p46npc44.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -92,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             googleId: payload.sub
           };
 
-          const apiResponse = await fetch('http://localhost:3000/api/auth/google', {
+          const apiResponse = await fetch(`${API_BASE}/auth/google`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData),
