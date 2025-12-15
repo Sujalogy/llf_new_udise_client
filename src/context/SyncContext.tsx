@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { api } from '../lib/api'; 
+import { api } from '../lib/api';
 import { SyncStatus } from '../types/school';
 import { toast } from '../hooks/use-toast';
 
@@ -33,7 +33,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setSelectedYear(year);
     setSelectedState(state);
     setSelectedDistrict(district);
-    
+
     if (state !== selectedState || district !== selectedDistrict) {
       setDirectoryStatus({ status: 'idle' });
       setDetailsStatus({ status: 'idle' });
@@ -43,7 +43,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // 1. Directory Sync (Smart Incremental)
   const runDirectorySync = async () => {
     if (!selectedYear || !selectedState || !selectedDistrict) return;
-    
+
     setDirectoryStatus({ status: 'syncing', message: 'Checking for new schools...' });
     try {
       const result = await api.syncDirectory(selectedYear, selectedState, selectedDistrict);
@@ -62,11 +62,28 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // 2. Details Sync (Smart Incremental)
   const runDetailsSync = async () => {
-    setDetailsStatus({ status: 'syncing', message: 'Fetching full reports...' });
+    setDetailsStatus({ status: 'syncing', message: 'Initializing...' });
+
     try {
-      const result = await api.syncSchoolDetails(selectedYear, selectedState, selectedDistrict);
+      // 1. Read Settings from LocalStorage (or use defaults)
+      const storedBatch = localStorage.getItem('conf_batchSize');
+      const storedStrict = localStorage.getItem('conf_strictMode');
+
+      const batchSize = storedBatch ? parseInt(storedBatch, 10) : 5;
+      const strictMode = storedStrict === 'true';
+
+      setDetailsStatus({ status: 'syncing', message: `Syncing with batch size ${batchSize}...` });
+
+      // 2. Call API with Config
+      const result = await api.syncSchoolDetails(
+        selectedYear,
+        selectedState,
+        selectedDistrict,
+        undefined, // udiseList (undefined for bulk sync)
+        { batchSize, strictMode } // [NEW] Pass config
+      );
+
       if (result.success) {
-        // [UPDATE]: Use dynamic message (e.g. "Updated 10, Skipped 40")
         setDetailsStatus({ status: 'success', message: result.message });
         toast({ title: 'Deep Sync Complete', description: result.message });
       } else {
@@ -74,6 +91,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       setDetailsStatus({ status: 'error', message: 'Detail Sync failed.' });
+      toast({ title: 'Sync Failed', description: String(error), variant: 'destructive' });
     }
   };
 

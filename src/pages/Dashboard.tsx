@@ -1,18 +1,11 @@
+// src/pages/Dashboard.tsx
+
 import { useEffect, useState } from 'react';
-import { 
-  Users, GraduationCap, School, Database, 
-  ArrowRight, Activity, PieChart as PieIcon, BarChart3 
-} from 'lucide-react';
+import { School, Database, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
-} from 'recharts';
 import { api } from '../lib/api';
 import type { DashboardData } from '../types/school';
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -35,7 +28,7 @@ export default function Dashboard() {
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <div>No data available</div>;
 
-  const { sync, enrollment, management, category, states } = data;
+  const { sync, states } = data; // We only need 'sync' and 'states' now
 
   // Safe Number Parsing
   const num = (v: string | number) => Number(v) || 0;
@@ -48,23 +41,15 @@ export default function Dashboard() {
   const dirPercent = masterCount ? (dirCount / masterCount) * 100 : 0;
   const detailPercent = masterCount ? (detailCount / masterCount) * 100 : 0;
 
-  // Prepare Chart Data
-  const genderData = [
-    { name: 'Boys', value: num(enrollment.total_boys), color: '#3b82f6' },
-    { name: 'Girls', value: num(enrollment.total_girls), color: '#ec4899' },
-  ];
-
-  const ptrGlobal = num(enrollment.total_teachers) ? Math.round(num(enrollment.total_students) / num(enrollment.total_teachers)) : 0;
-
   return (
     <div className="animate-fade-in pb-10 space-y-8">
       {/* HEADER */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Real-time overview of school data synchronization and analytics.</p>
+        <p className="text-muted-foreground">Overview of sync status and state performance.</p>
       </div>
 
-      {/* 1. SYNC FUNNEL CARDS */}
+      {/* 1. SYNC STATUS CARDS */}
       <div className="grid gap-4 md:grid-cols-3">
         <SyncCard 
           title="Total Object IDs" 
@@ -94,80 +79,7 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* 2. ENROLLMENT & PTR */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Students" value={num(enrollment.total_students).toLocaleString()} icon={Users} />
-        <StatCard title="Total Teachers" value={num(enrollment.total_teachers).toLocaleString()} icon={GraduationCap} />
-        <StatCard title="Global PTR" value={`${ptrGlobal}:1`} icon={BarChart3} desc="Student-Teacher Ratio" />
-        <div className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col justify-center">
-           <div className="text-sm font-medium text-muted-foreground mb-2">Gender Parity</div>
-           <div className="h-4 flex w-full rounded-full overflow-hidden">
-             <div style={{ width: `${(num(enrollment.total_boys)/num(enrollment.total_students))*100}%` }} className="bg-blue-500" />
-             <div style={{ width: `${(num(enrollment.total_girls)/num(enrollment.total_students))*100}%` }} className="bg-pink-500" />
-           </div>
-           <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-             <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"/> {num(enrollment.total_boys).toLocaleString()} Boys</span>
-             <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-pink-500"/> {num(enrollment.total_girls).toLocaleString()} Girls</span>
-           </div>
-        </div>
-      </div>
-
-      {/* 3. CHARTS ROW */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Category Distribution */}
-        <Card className="col-span-1">
-          <CardHeader>
-            <CardTitle>School Categories</CardTitle>
-            <CardDescription>Distribution by education level</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={category.slice(0, 6)} layout="vertical" margin={{ left: 20 }}>
-                <XAxis type="number" hide />
-                <YAxis dataKey="category" type="category" width={100} tick={{fontSize: 11}} interval={0} />
-                <Tooltip cursor={{fill: 'transparent'}} />
-                <Bar dataKey="count" fill="#8884d8" radius={[0, 4, 4, 0]}>
-                  {category.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Management Distribution */}
-        <Card className="col-span-1">
-          <CardHeader>
-            <CardTitle>Management Type</CardTitle>
-            <CardDescription>Who runs the schools?</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={management}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="count"
-                  nameKey="management_type"
-                >
-                  {management.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend layout="vertical" verticalAlign="middle" align="right" />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 4. STATE PERFORMANCE TABLE */}
+      {/* 2. STATE PERFORMANCE TABLE */}
       <Card>
         <CardHeader>
           <CardTitle>State-wise Performance</CardTitle>
@@ -243,34 +155,12 @@ function SyncCard({ title, value, subtitle, icon: Icon, color, bg, progress }: a
   );
 }
 
-function StatCard({ title, value, icon: Icon, desc }: any) {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center gap-4">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Icon className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <h4 className="text-2xl font-bold">{value}</h4>
-            {desc && <p className="text-xs text-muted-foreground">{desc}</p>}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function DashboardSkeleton() {
   return (
     <div className="space-y-8 animate-pulse">
       <div className="h-8 w-48 bg-muted rounded" />
       <div className="grid gap-4 md:grid-cols-3">
         {[1,2,3].map(i => <div key={i} className="h-40 bg-muted rounded-xl" />)}
-      </div>
-      <div className="grid gap-4 md:grid-cols-4">
-        {[1,2,3,4].map(i => <div key={i} className="h-24 bg-muted rounded-xl" />)}
       </div>
       <div className="h-96 bg-muted rounded-xl" />
     </div>

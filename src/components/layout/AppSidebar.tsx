@@ -9,6 +9,7 @@ import {
   LogOut,
   User,
   Shield,
+  AlertCircle, // [NEW] Icon for Skipped List
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
@@ -24,27 +25,29 @@ import { useAuth } from '../../context/AuthContext';
 export function AppSidebar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const role = (user as any)?.role || 'user'; // Extract role from user or default to 'user'
+  const role = (user as any)?.role || 'user';
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
   };
 
-  // Navigation items based on role
+  // Main Navigation
   const navigation = [
-    // Admin-only items
     ...(role === 'admin'
       ? [
           { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
           { name: 'Admin Sync', href: '/admin-sync', icon: RefreshCw },
         ]
       : []),
-    // All users can see My Schools
     { name: 'My Schools', href: '/my-schools', icon: School },
   ];
 
-  const secondaryNav = role === 'admin' ? [{ name: 'Settings', href: '/settings', icon: Settings }] : [];
+  // Secondary / System Navigation
+  const secondaryNav = role === 'admin' ? [
+    { name: 'Skipped List', href: '/admin/skipped', icon: AlertCircle }, // [NEW] Added Skipped List
+    { name: 'Settings', href: '/settings', icon: Settings }
+  ] : [];
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground">
@@ -86,7 +89,6 @@ export function AppSidebar() {
           {secondaryNav.length > 0 && (
             <>
               <div className="my-4 border-t border-sidebar-border" />
-
               <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground/50">
                 System
               </p>
@@ -113,7 +115,6 @@ export function AppSidebar() {
 
         {/* User Section */}
         <div className="border-t border-sidebar-border p-4">
-          {/* Role Badge */}
           <div className="mb-3 flex items-center gap-2 rounded-lg bg-sidebar-accent/30 px-3 py-2">
             {role === 'admin' ? (
               <Shield className="h-4 w-4 text-accent" />
@@ -125,7 +126,6 @@ export function AppSidebar() {
             </span>
           </div>
 
-          {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -158,7 +158,6 @@ export function AppSidebar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Database Status */}
           <div className="mt-3 flex items-center gap-3 rounded-lg bg-sidebar-accent/30 p-3">
             <Database className="h-5 w-5 text-accent" />
             <div>

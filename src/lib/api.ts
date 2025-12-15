@@ -11,7 +11,8 @@ import type {
   DashboardStats,
   StateWiseStats,
   SyncStatus,
-  DashboardData, // Ensure this is exported from types/school.ts
+  DashboardData,
+  SkippedSchool, // Ensure this is exported from types/school.ts
 } from "../types/school";
 
 const API_BASE = "http://localhost:3000/api";
@@ -88,7 +89,10 @@ export const api = {
     fetchApi<TeacherStats>(`/schools/stats/${schoolId}`),
   getReportCard: (schoolId: string) =>
     Promise.reject("Endpoint not implemented"),
-
+  getSkippedSchools: (page = 1, limit = 50) =>
+    fetchApi<{ data: SkippedSchool[]; meta: { total: number } }>(
+      `/schools/skipped?page=${page}&limit=${limit}`
+    ),
   // --- ADMIN SYNC ACTIONS ---
 
   // Step 1: Sync Directory (Master List)
@@ -112,14 +116,23 @@ export const api = {
     ),
 
   // Step 3: Sync Full Details (Profile, Facilities, Stats - NEW)
-  syncSchoolDetails: (yearId: string, stcode11: string, dtcode11: string) =>
-    fetchApi<{ success: boolean; count: number; message: string }>(
-      "/schools/sync-details",
-      {
-        method: "POST",
-        body: JSON.stringify({ yearId, stcode11, dtcode11 }),
-      }
-    ),
+  syncSchoolDetails: (
+    yearId: string,
+    stcode: string,
+    dtcode: string,
+    udiseList?: string[],
+    config?: { batchSize?: number; strictMode?: boolean } // [NEW]
+  ) =>
+    fetchApi<any>("/schools/sync/details", {
+      method: "POST",
+      body: JSON.stringify({
+        yearId,
+        stcode11: stcode,
+        dtcode11: dtcode,
+        udiseList,
+        ...config, // Spread config (batchSize, strictMode)
+      }),
+    }),
 
   getDashboardStats: () => fetchApi<DashboardData>("/schools/stats/dashboard"),
 

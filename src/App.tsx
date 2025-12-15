@@ -14,6 +14,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
 import { SyncProvider } from "./context/SyncContext";
+import SkippedSchools from "./pages/SkippedSchools";
 
 const queryClient = new QueryClient();
 
@@ -25,62 +26,64 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <SyncProvider>
-          <Routes>
-            {/* Public route */}
-            <Route path="/auth" element={<Auth />} />
+            <Routes>
+              {/* Public route */}
+              <Route path="/auth" element={<Auth />} />
 
-            {/* Root redirect based on role */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <RoleBasedRedirect />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Protected routes with layout */}
-            <Route
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              {/* Admin-only routes */}
+              {/* Root redirect based on role */}
               <Route
-                path="/dashboard"
+                path="/"
                 element={
-                  <ProtectedRoute requiredRole="admin">
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin-sync"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminSync />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <Settings />
+                  <ProtectedRoute>
+                    <RoleBasedRedirect />
                   </ProtectedRoute>
                 }
               />
 
-              {/* Routes for all authenticated users */}
-              <Route path="/my-schools" element={<MySchools />} />
-              <Route path="/school/:schoolId" element={<SchoolDetail />} />
-            </Route>
+              {/* Protected routes with layout */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                {/* Admin-only routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin-sync"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AdminSync />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <Settings />
+                    </ProtectedRoute>
+                  }
+                />
 
-            {/* Catch-all */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+                <Route path="admin/skipped" element={<SkippedSchools />} />
+
+                {/* Routes for all authenticated users */}
+                <Route path="/my-schools" element={<MySchools />} />
+                <Route path="/school/:schoolId" element={<SchoolDetail />} />
+              </Route>
+
+              {/* Catch-all */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
           </SyncProvider>
         </AuthProvider>
       </BrowserRouter>

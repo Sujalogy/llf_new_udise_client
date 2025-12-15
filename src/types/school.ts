@@ -134,3 +134,16 @@ export interface DashboardData {
     teacher_count: string | number;
   }[];
 }
+
+export interface SkippedSchool {
+  id: number;
+  udise_code: string;
+  stcode11: string;
+  dtcode11: string;
+  year_desc: string;
+  reason: string;
+  created_at: string;
+  stname?: string;
+  dtname?: string;
+  school_name?: string;
+}
