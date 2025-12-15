@@ -56,7 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
-    script.onload = () => console.log("Google Identity Script loaded");
     document.head.appendChild(script);
     return () => { document.head.removeChild(script); };
   }, []);

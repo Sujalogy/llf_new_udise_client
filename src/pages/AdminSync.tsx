@@ -1,21 +1,21 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, CheckCircle2, AlertCircle, Loader2, List, Database, FileText } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, List, FileText } from 'lucide-react';
 import { LocationFilters } from '../components/filters/LocationFilters';
 import { api } from '../lib/api';
 import type { Year, State, District, SyncStatus } from '../types/school';
 import { Button } from '../components/ui/button';
-import { useSync } from '../context/SyncContext'; // Import hook
+import { useSync } from '../context/SyncContext';
 
 export default function AdminSync() {
-  // Use Global State
-  const { 
+  // Use Global State (GIS related props removed)
+  const {
     selectedYear, selectedState, selectedDistrict, setSelections,
-    directoryStatus, gisStatus, detailsStatus,
-    runDirectorySync, runGisSync, runDetailsSync,
+    directoryStatus, detailsStatus,
+    runDirectorySync, runDetailsSync,
     isStep1Complete
   } = useSync();
 
-  // Local state for dropdown options only
+  // Local state for dropdown options
   const [years, setYears] = useState<Year[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
@@ -53,7 +53,6 @@ export default function AdminSync() {
       }
     }
     fetchStates();
-    // No need to clear local state here, context handles selections
   }, [selectedYear]);
 
   // Fetch districts
@@ -77,7 +76,7 @@ export default function AdminSync() {
     fetchDistricts();
   }, [selectedState, selectedYear]);
 
-  // Handlers to update Context
+  // Handlers
   const handleYearChange = (year: string) => setSelections(year, selectedState, selectedDistrict);
   const handleStateChange = (state: string) => setSelections(selectedYear, state, '');
   const handleDistrictChange = (district: string) => setSelections(selectedYear, selectedState, district);
@@ -87,7 +86,7 @@ export default function AdminSync() {
       <header className="page-header mb-8">
         <h1 className="page-title">Admin Sync</h1>
         <p className="page-description">
-          Synchronize school data in three stages: Directory, GIS Coordinates, and Detailed Reports.
+          Synchronize school data in two stages: Directory Listing (with GIS) and Detailed Reports.
         </p>
       </header>
 
@@ -106,8 +105,9 @@ export default function AdminSync() {
         isLoading={isLoading}
       />
 
-      <div className="mt-8 grid gap-6 md:grid-cols-3">
-        
+      {/* Grid Layout: 2 Columns */}
+      <div className="mt-8 grid gap-6 md:grid-cols-2">
+
         {/* PANEL 1: Directory Sync */}
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm flex flex-col">
           <div className="flex items-center gap-3 mb-4">
@@ -115,69 +115,44 @@ export default function AdminSync() {
               <List className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Step 1: Directory</h3>
-              <p className="text-xs text-muted-foreground">Get School List</p>
+              <h3 className="font-semibold text-foreground">Step 1: GIS</h3>
+              <p className="text-xs text-muted-foreground">Get List & Coordinates</p>
             </div>
           </div>
           <p className="text-sm text-muted-foreground mb-6 flex-1">
-            Fetch master list of UDISE codes for <strong>{selectedYear || 'selected year'}</strong>.
+            Fetch master list of UDISE codes and GIS coordinates.
           </p>
-          <Button 
+          <Button
             onClick={runDirectorySync}
             disabled={!selectedDistrict || directoryStatus.status === 'syncing'}
             className="w-full mt-auto"
           >
-            {directoryStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Fetching...</> : 'Fetch List'}
+            {directoryStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Fetching...</> : 'Fetch Directory'}
           </Button>
           <StatusMessage status={directoryStatus} />
         </div>
 
-        {/* PANEL 2: GIS Sync */}
-        <div className={`rounded-lg border border-border bg-card p-6 shadow-sm flex flex-col transition-opacity ${!isStep1Complete ? 'opacity-50' : 'opacity-100'}`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center">
-              <Database className="h-5 w-5 text-accent" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Step 2: GIS Data</h3>
-              <p className="text-xs text-muted-foreground">Get Coordinates</p>
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground mb-6 flex-1">
-            Fetch Latitude, Longitude & basic info from GIS Server.
-          </p>
-          <Button 
-            onClick={runGisSync}
-            disabled={!isStep1Complete || gisStatus.status === 'syncing'}
-            variant="secondary"
-            className="w-full mt-auto"
-          >
-            {gisStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Syncing...</> : 'Sync GIS'}
-          </Button>
-          <StatusMessage status={gisStatus} />
-        </div>
-
-        {/* PANEL 3: Detail Sync */}
+        {/* PANEL 2: Detail Sync */}
         <div className={`rounded-lg border border-border bg-card p-6 shadow-sm flex flex-col transition-opacity ${!isStep1Complete ? 'opacity-50' : 'opacity-100'}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
               <FileText className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Step 3: Details</h3>
+              <h3 className="font-semibold text-foreground">Step 2: Details</h3>
               <p className="text-xs text-muted-foreground">Get Full Reports</p>
             </div>
           </div>
           <p className="text-sm text-muted-foreground mb-6 flex-1">
-            Fetch Profile, Facilities, Teachers, Enrolment & Social Data.
+            Fetch Profile, Facilities, Teachers, Enrolment & Social Data from UDISE+.
           </p>
-          <Button 
+          <Button
             onClick={runDetailsSync}
             disabled={!isStep1Complete || detailsStatus.status === 'syncing'}
             variant="outline"
-            className="w-full mt-auto border-warning/50 hover:bg-warning/5 text-warning-foreground"
+            className="w-full mt-auto border-warning/80"
           >
-            {detailsStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Fetching...</> : 'Sync Details'}
+            {detailsStatus.status === 'syncing' ? <><Loader2 className="mr-2 h-4 w-4 text-gray-900 animate-spin" /> Fetching...</> : 'Sync Details'}
           </Button>
           <StatusMessage status={detailsStatus} />
         </div>
@@ -190,14 +165,13 @@ export default function AdminSync() {
 // Helper Component for consistent status messages
 function StatusMessage({ status }: { status: SyncStatus }) {
   if (status.status === 'idle') return null;
-  
+
   return (
-    <div className={`mt-3 flex items-center gap-2 text-xs p-2 rounded-md ${
-      status.status === 'success' ? 'bg-success/10 text-success' : 
-      status.status === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'
-    }`}>
-      {status.status === 'success' ? <CheckCircle2 className="h-3 w-3" /> : 
-       status.status === 'error' ? <AlertCircle className="h-3 w-3" /> : null}
+    <div className={`mt-3 flex items-center gap-2 text-xs p-2 rounded-md ${status.status === 'success' ? 'bg-success/10 text-success' :
+        status.status === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-secondary-foreground'
+      }`}>
+      {status.status === 'success' ? <CheckCircle2 className="h-3 w-3" /> :
+        status.status === 'error' ? <AlertCircle className="h-3 w-3" /> : null}
       <span className="truncate" title={status.message}>{status.message}</span>
     </div>
   );

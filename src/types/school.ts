@@ -12,6 +12,7 @@ export interface State {
 export interface District {
   dtcode11: string;
   dtname: string;
+  school_count?: number;
 }
 
 export interface School {

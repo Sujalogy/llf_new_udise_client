@@ -91,7 +91,7 @@ export function LocationFilters({
             <SelectContent className="bg-popover">
               {districts.map((district) => (
                 <SelectItem key={district.dtcode11} value={district.dtcode11}>
-                  {district.dtname}
+                  {district.dtname} {district.school_count !== undefined ? `(${district.school_count})` : ''}
                 </SelectItem>
               ))}
             </SelectContent>

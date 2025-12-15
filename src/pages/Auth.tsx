@@ -56,17 +56,6 @@ export default function Auth() {
         {/* Card */}
         <div className="rounded-xl border p-8 shadow-sm">
           <div className="space-y-6">
-            {/* Domain Notice */}
-            <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
-              <p className="text-sm">
-                <strong>Access restricted</strong> to{" "}
-                <span className="font-mono text-primary">
-                  @{ALLOWED_DOMAIN}
-                </span>{" "}
-                accounts only.
-              </p>
-            </div>
-
             {/* Error */}
             {authError && (
               <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4 flex gap-3">

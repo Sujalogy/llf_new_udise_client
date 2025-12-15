@@ -1,36 +1,36 @@
-// src/pages/MySchools.tsx
-
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { ExportButton } from '../components/export/ExportButton';
 import { SchoolsTable } from '../components/schools/SchoolsTable';
 import { api } from '../lib/api';
 import type { State, District, School } from '../types/school';
+import { useSync } from '../context/SyncContext'; // 1. Import Context
 
 export default function MySchools() {
+  // 2. Use Global State instead of local useState for selections
+  const { 
+    selectedState, 
+    selectedDistrict, 
+    selectedYear, // Need this to preserve it when calling setSelections
+    setSelections 
+  } = useSync();
+
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   
   // Data State
   const [schools, setSchools] = useState<School[]>([]);
   
-  // Filter State
-  const [selectedState, setSelectedState] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
+  // Local UI State (Search & Pagination don't strictly need persistence, but can be added if needed)
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Pagination & Loading State
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);        // For initial load
-  const [isLoadingMore, setIsLoadingMore] = useState(false); // For appending data
+  const [isLoading, setIsLoading] = useState(false);        
+  const [isLoadingMore, setIsLoadingMore] = useState(false); 
   const [totalCount, setTotalCount] = useState(0);
 
-  // Observer Ref for scrolling
   const observerTarget = useRef<HTMLDivElement>(null);
-
-  // Constants
   const PAGE_LIMIT = 50;
 
   // 1. Fetch synced states on mount
@@ -47,16 +47,16 @@ export default function MySchools() {
     fetchSyncedStates();
   }, []);
 
-  // 2. Fetch districts when state changes
+  // 2. Fetch districts when state changes (or loads from context)
   useEffect(() => {
     if (!selectedState) {
       setDistricts([]);
-      setSchools([]);
+      // Only clear schools if we actually don't have a state (e.g. initial load empty)
+      if (schools.length > 0) setSchools([]);
       return;
     }
 
     async function fetchDistricts() {
-      // Don't set main loading here to avoid flashing, just district loading if we had it
       try {
         const districtsData = await api.getSyncedDistricts(selectedState);
         setDistricts(districtsData);
@@ -67,24 +67,27 @@ export default function MySchools() {
     }
     fetchDistricts();
     
-    // Reset selection downstream
-    setSelectedDistrict('');
-    setSchools([]); 
+    // CRITICAL CHANGE: Removed the automatic reset of selectedDistrict here.
+    // We only want to reset it if the USER changes the state, not on re-mount.
   }, [selectedState]);
 
   // 3. Reset Pagination when District Changes
   useEffect(() => {
+    // Only reset pagination if we have a valid district
     if (selectedDistrict) {
-      setSchools([]);
       setPage(1);
       setHasMore(true);
-      setTotalCount(0);
+      // We don't clear schools here immediately to avoid flash, 
+      // the fetchSchools effect will handle the update.
     }
   }, [selectedDistrict]);
 
   // 4. Fetch Schools (Initial + Append)
   useEffect(() => {
-    if (!selectedState || !selectedDistrict) return;
+    if (!selectedState || !selectedDistrict) {
+      setSchools([]);
+      return;
+    }
 
     async function fetchSchools() {
       const isInitial = page === 1;
@@ -93,25 +96,22 @@ export default function MySchools() {
       else setIsLoadingMore(true);
 
       try {
-        // Fetch data with current page
         const result: any = await api.getUdiseList(selectedState, selectedDistrict, page, PAGE_LIMIT);
         
         let newSchools: School[] = [];
         let fetchedCount = 0;
         let backendTotal = 0;
 
-        // Handle different backend response structures
         if (Array.isArray(result)) {
           newSchools = result;
           fetchedCount = result.length;
-          backendTotal = result.length; // Approx if no meta
+          backendTotal = result.length;
         } else if (result && result.data) {
           newSchools = result.data;
           fetchedCount = newSchools.length;
           backendTotal = result.meta?.count || result.total || 0;
         }
 
-        // Update State
         if (isInitial) {
           setSchools(newSchools);
           setTotalCount(backendTotal);
@@ -119,7 +119,6 @@ export default function MySchools() {
           setSchools((prev) => [...prev, ...newSchools]);
         }
 
-        // Determine if there are more records to fetch
         setHasMore(fetchedCount === PAGE_LIMIT);
 
       } catch (error) {
@@ -133,7 +132,7 @@ export default function MySchools() {
     fetchSchools();
   }, [page, selectedState, selectedDistrict]);
 
-  // 5. Intersection Observer for Infinite Scroll
+  // 5. Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -151,7 +150,17 @@ export default function MySchools() {
     return () => observer.disconnect();
   }, [hasMore, isLoading, isLoadingMore]);
 
-  // Client-side filtering
+  // Handlers
+  const handleStateChange = (newState: string) => {
+    // When USER explicitly changes state, we reset district
+    setSelections(selectedYear, newState, ''); 
+    setSchools([]); // Clear current data
+  };
+
+  const handleDistrictChange = (newDistrict: string) => {
+    setSelections(selectedYear, selectedState, newDistrict);
+  };
+
   const filteredSchools = searchQuery
     ? (schools || []).filter(
         (school) =>
@@ -169,16 +178,13 @@ export default function MySchools() {
         </p>
       </header>
 
-      {/* Workflow Info */}
       <div className="mb-6 rounded-lg border border-accent/20 bg-accent/5 p-4">
         <h3 className="font-medium text-foreground">Step 2: Explore Synced Data</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Select from states and districts that already exist in your database. Click "View Report"
-          on any school to see detailed information fetched live from the UDISE+ server.
+          Select from states and districts that already exist in your database.
         </p>
       </div>
 
-      {/* Filters with Export */}
       <div className="filter-section">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex-1 grid gap-4 md:grid-cols-2">
@@ -186,7 +192,7 @@ export default function MySchools() {
               <label className="text-sm font-medium text-foreground">State</label>
               <select
                 value={selectedState}
-                onChange={(e) => setSelectedState(e.target.value)}
+                onChange={(e) => handleStateChange(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Select State</option>
@@ -201,7 +207,7 @@ export default function MySchools() {
               <label className="text-sm font-medium text-foreground">District</label>
               <select
                 value={selectedDistrict}
-                onChange={(e) => setSelectedDistrict(e.target.value)}
+                onChange={(e) => handleDistrictChange(e.target.value)}
                 disabled={!selectedState}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
@@ -221,7 +227,6 @@ export default function MySchools() {
           />
         </div>
 
-        {/* Search within results */}
         {schools.length > 0 && (
           <div className="mt-4 relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -235,7 +240,6 @@ export default function MySchools() {
         )}
       </div>
 
-      {/* Results Count */}
       {selectedDistrict && (
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
@@ -244,10 +248,8 @@ export default function MySchools() {
         </div>
       )}
 
-      {/* Schools Table */}
       <SchoolsTable schools={filteredSchools} isLoading={isLoading && !!selectedDistrict} />
 
-      {/* Loader Sentinel for Infinite Scroll */}
       {selectedDistrict && !isLoading && !searchQuery && (
         <div 
           ref={observerTarget} 
