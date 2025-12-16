@@ -19,6 +19,9 @@ export interface School {
   school_id: string;
   udise_code: string;
   school_name: string;
+  school_type: string;
+  category?: string; 
+  management: string;
   state_name: string;
   district_name: string;
   block_name?: string;

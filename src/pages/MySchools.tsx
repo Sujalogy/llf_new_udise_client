@@ -1,5 +1,3 @@
-// src/pages/MySchools.tsx
-
 import { useEffect, useState, useRef } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { Input } from '../components/ui/input';
@@ -11,7 +9,7 @@ import type { Year, State, District, School } from '../types/school';
 import { useSync } from '../context/SyncContext';
 
 export default function MySchools() {
-  // 1. Use Global State for Location (Persists across navigation)
+  // Context for global selections (Year, State, District)
   const { 
     selectedState, 
     selectedDistrict, 
@@ -19,19 +17,22 @@ export default function MySchools() {
     setSelections 
   } = useSync();
 
-  // 2. Metadata State
+  // Dropdown Data States
   const [years, setYears] = useState<Year[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  
+  const [schoolTypes, setSchoolTypes] = useState<string[]>([]); // Renamed from categories
+  const [categories, setCategories] = useState<string[]>([]);   // New Category list
   const [managements, setManagements] = useState<string[]>([]);
 
-  // 3. Local Filter State (Category & Management)
+  // Selection States
+  const [selectedSchoolType, setSelectedSchoolType] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedManagement, setSelectedManagement] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 4. Data & Pagination State
+  // Table Data States
   const [schools, setSchools] = useState<School[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -42,21 +43,19 @@ export default function MySchools() {
   const observerTarget = useRef<HTMLDivElement>(null);
   const PAGE_LIMIT = 50;
 
-  // --- EFFECTS ---
-
-  // A. Initial Load: Fetch Years, States, and Filter Options
+  // 1. Initial Load (Years & Static Filters)
   useEffect(() => {
     async function init() {
       try {
-        const [yearsData, statesData, filters] = await Promise.all([
+        const [yearsData, filters] = await Promise.all([
           api.getYears(),
-          api.getSyncedStates(),
           api.getFilters()
         ]);
         setYears(yearsData);
-        setStates(statesData);
-        setCategories(filters.categories);
-        setManagements(filters.managements);
+        // Map API response to local state
+        setSchoolTypes(filters.schoolTypes || []);
+        setCategories(filters.categories || []);
+        setManagements(filters.managements || []);
       } catch (error) {
         console.error("Failed to fetch metadata", error);
       }
@@ -64,58 +63,71 @@ export default function MySchools() {
     init();
   }, []);
 
-  // B. Fetch Districts when State changes (or loads from context)
+  // 2. Fetch States (Dependent on Year)
+  useEffect(() => {
+    async function fetchStates() {
+      try {
+        // Fetch states that actually have data for the selected year
+        const statesData = await api.getSyncedStates(selectedYear);
+        setStates(statesData);
+      } catch (error) {
+        setStates([]);
+      }
+    }
+    fetchStates();
+  }, [selectedYear]);
+
+  // 3. Fetch Districts (Dependent on State & Year)
   useEffect(() => {
     if (!selectedState) {
       setDistricts([]);
-      if (schools.length > 0) setSchools([]);
       return;
     }
-
     async function fetchDistricts() {
       try {
-        const districtsData = await api.getSyncedDistricts(selectedState);
+        const districtsData = await api.getSyncedDistricts(selectedState, selectedYear);
         setDistricts(districtsData);
       } catch (error) {
-        console.error("Failed to fetch districts", error);
         setDistricts([]);
       }
     }
     fetchDistricts();
-  }, [selectedState]);
+  }, [selectedState, selectedYear]);
 
-  // C. Reset Pagination on Filter Change
+  // 4. Reset Pagination on Filter Change
   useEffect(() => {
-    if (selectedDistrict) {
-      setPage(1);
-      setHasMore(true);
-      // We don't clear schools here to avoid UI flash; fetchSchools handles update
-    }
-  }, [selectedDistrict, selectedCategory, selectedManagement, selectedYear]);
+    setPage(1);
+    setHasMore(true);
+    // When filters change, we reset the list, so data fetch will be triggered by the next effect
+  }, [
+    selectedDistrict, selectedState, selectedYear, 
+    selectedSchoolType, selectedCategory, selectedManagement, 
+    searchQuery
+  ]);
 
-  // D. Fetch Schools (Main Data Loop)
+  // 5. Main Data Fetch (Dynamic Table)
   useEffect(() => {
-    if (!selectedState || !selectedDistrict) {
-      setSchools([]);
-      return;
-    }
-
     async function fetchSchools() {
       const isInitial = page === 1;
 
-      if (isInitial) setIsLoading(true);
-      else setIsLoadingMore(true);
+      if (isInitial) {
+        setIsLoading(true);
+        setSchools([]); // Clear old data for fresh filter
+      } else {
+        setIsLoadingMore(true);
+      }
 
       try {
-        // Fetch data including all new filters
         const result = await api.getUdiseList(
-          selectedState, 
-          selectedDistrict, 
+          selectedState || '', 
+          selectedDistrict || '', 
           page, 
           PAGE_LIMIT,
-          selectedCategory,
+          selectedSchoolType, // Passed as schoolType
           selectedManagement,
-          selectedYear
+          selectedYear,
+          searchQuery,
+          selectedCategory    // Passed as category
         );
         
         const newSchools = result.data || [];
@@ -127,9 +139,7 @@ export default function MySchools() {
         } else {
           setSchools((prev) => [...prev, ...newSchools]);
         }
-
         setHasMore(newSchools.length === PAGE_LIMIT);
-
       } catch (error) {
         console.error("Failed to fetch schools", error);
       } finally {
@@ -138,10 +148,24 @@ export default function MySchools() {
       }
     }
 
-    fetchSchools();
-  }, [page, selectedState, selectedDistrict, selectedCategory, selectedManagement, selectedYear]);
+    // Debounce search slightly
+    const timeoutId = setTimeout(() => {
+        fetchSchools();
+    }, 300);
 
-  // E. Infinite Scroll Observer
+    return () => clearTimeout(timeoutId);
+  }, [
+    page, 
+    selectedState, 
+    selectedDistrict, 
+    selectedSchoolType, 
+    selectedCategory, 
+    selectedManagement, 
+    selectedYear, 
+    searchQuery
+  ]);
+
+  // 6. Infinite Scroll Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -149,145 +173,90 @@ export default function MySchools() {
           setPage((prev) => prev + 1);
         }
       },
-      { threshold: 0.1, rootMargin: '100px' }
+      { threshold: 0.1 }
     );
-
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
+    if (observerTarget.current) observer.observe(observerTarget.current);
     return () => observer.disconnect();
   }, [hasMore, isLoading, isLoadingMore]);
 
-  // --- HANDLERS ---
 
-  const handleYearChange = (val: string) => {
-    setSelections(val, selectedState, selectedDistrict);
-    setSchools([]);
-  };
-
-  const handleStateChange = (newState: string) => {
-    setSelections(selectedYear, newState, ''); 
-    setSchools([]); 
-  };
-
-  const handleDistrictChange = (newDistrict: string) => {
-    setSelections(selectedYear, selectedState, newDistrict);
-  };
-
-  const handleCategoryChange = (val: string) => {
-    setSelectedCategory(val);
-    setSchools([]); // Clear immediately for better UX
-  };
-
-  const handleManagementChange = (val: string) => {
-    setSelectedManagement(val);
-    setSchools([]);
-  };
-
-  // Client-side search logic
-  const filteredSchools = searchQuery
-    ? schools.filter(
-        (school) =>
-          school.school_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          school.udise_code?.includes(searchQuery)
-      )
-    : schools;
+  // Handlers
+  const handleYearChange = (val: string) => setSelections(val, '', ''); 
+  const handleStateChange = (val: string) => setSelections(selectedYear, val, '');
+  const handleDistrictChange = (val: string) => setSelections(selectedYear, selectedState, val);
 
   return (
     <div className="animate-fade-in pb-10">
       <header className="page-header">
         <h1 className="page-title">My Schools</h1>
-        <p className="page-description">
-          Browse and explore schools synced to your database.
-        </p>
+        <p className="page-description">Browse, filter, and export school data.</p>
       </header>
 
-      {/* Filter Section */}
-      <div className="filter-section mb-6">
-        <div className="flex flex-col gap-4">
-          <LocationFilters
-            // Metadata
-            years={years}
-            states={states}
-            districts={districts}
-            categories={categories}
-            managements={managements}
-            
-            // Selected Values
-            selectedYear={selectedYear}
-            selectedState={selectedState}
-            selectedDistrict={selectedDistrict}
-            selectedCategory={selectedCategory}
-            selectedManagement={selectedManagement}
-            
-            // Change Handlers
-            onYearChange={handleYearChange}
-            onStateChange={handleStateChange}
-            onDistrictChange={handleDistrictChange}
-            onCategoryChange={handleCategoryChange}
-            onManagementChange={handleManagementChange}
-            
-            // Config
-            showYear={true}
-            isLoading={isLoading && !schools.length}
-          />
+      <div className="filter-section mb-6 space-y-4">
+        <LocationFilters
+          years={years}
+          states={states}
+          districts={districts}
           
-          <div className="flex justify-between items-center">
-            {/* Search Bar */}
+          schoolTypes={schoolTypes} // Data
+          categories={categories}   // Data
+          managements={managements} // Data
+          
+          selectedYear={selectedYear}
+          selectedState={selectedState}
+          selectedDistrict={selectedDistrict}
+          
+          selectedSchoolType={selectedSchoolType} // Selection
+          selectedCategory={selectedCategory}     // Selection
+          selectedManagement={selectedManagement} // Selection
+          
+          onYearChange={handleYearChange}
+          onStateChange={handleStateChange}
+          onDistrictChange={handleDistrictChange}
+          
+          onSchoolTypeChange={setSelectedSchoolType}
+          onCategoryChange={setSelectedCategory}
+          onManagementChange={setSelectedManagement}
+          
+          showYear={true}
+        />
+        
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search loaded schools..."
+                placeholder="Search by Name or UDISE Code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={!schools.length}
                 className="pl-9 bg-background"
               />
             </div>
 
-            {/* Export */}
             <ExportButton
               stcode11={selectedState}
               dtcode11={selectedDistrict}
-              disabled={!selectedDistrict || !schools.length}
+              yearId={selectedYear}
+              schoolType={selectedSchoolType}
+              category={selectedCategory}
+              management={selectedManagement}
+              disabled={schools.length === 0}
             />
-          </div>
         </div>
       </div>
 
-      {/* Results Count */}
-      {selectedDistrict && (
-        <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredSchools.length} {hasMore ? '+' : ''} of {totalCount} schools
+            Found {totalCount} schools matching your criteria.
           </p>
-        </div>
-      )}
+      </div>
 
-      {/* Table */}
-      <SchoolsTable schools={filteredSchools} isLoading={isLoading && page === 1} />
+      <SchoolsTable schools={schools} isLoading={isLoading} />
 
-      {/* Loader Sentinel */}
-      {selectedDistrict && !isLoading && !searchQuery && (
-        <div 
-          ref={observerTarget} 
-          className="w-full h-20 flex items-center justify-center mt-4"
-        >
-          {isLoadingMore && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm">Loading more schools...</span>
-            </div>
-          )}
-          {!hasMore && schools.length > 0 && (
-            <p className="text-sm text-muted-foreground">No more schools to load.</p>
-          )}
-          {!hasMore && schools.length === 0 && !isLoading && (
-            <p className="text-sm text-muted-foreground">No schools found for this selection.</p>
-          )}
-        </div>
-      )}
+      {/* Infinite Scroll Sentinel */}
+      <div ref={observerTarget} className="h-20 flex items-center justify-center">
+        {isLoadingMore && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+        {!hasMore && schools.length > 0 && <span className="text-sm text-muted-foreground">End of list</span>}
+      </div>
     </div>
   );
 }

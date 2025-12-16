@@ -6,34 +6,48 @@ interface LocationFiltersProps {
   years?: Year[];
   states: State[];
   districts: District[];
-  categories?: string[]; // [NEW]
-  managements?: string[]; // [NEW]
+  
+  schoolTypes?: string[]; // [RENAMED from categories]
+  categories?: string[];  // [NEW]
+  managements?: string[];
   
   selectedYear?: string;
   selectedState: string;
   selectedDistrict: string;
-  selectedCategory?: string; // [NEW]
-  selectedManagement?: string; // [NEW]
+  
+  selectedSchoolType?: string; // [RENAMED]
+  selectedCategory?: string;   // [NEW]
+  selectedManagement?: string;
 
   onYearChange?: (val: string) => void;
   onStateChange: (val: string) => void;
   onDistrictChange: (val: string) => void;
-  onCategoryChange?: (val: string) => void; // [NEW]
-  onManagementChange?: (val: string) => void; // [NEW]
+  
+  onSchoolTypeChange?: (val: string) => void; // [RENAMED]
+  onCategoryChange?: (val: string) => void;   // [NEW]
+  onManagementChange?: (val: string) => void;
 
   showYear?: boolean;
   isLoading?: boolean;
 }
 
 export function LocationFilters({
-  years, states, districts, categories, managements,
-  selectedYear, selectedState, selectedDistrict, selectedCategory, selectedManagement,
-  onYearChange, onStateChange, onDistrictChange, onCategoryChange, onManagementChange,
+  years, states, districts, 
+  schoolTypes, categories, managements,
+  
+  selectedYear, selectedState, selectedDistrict, 
+  selectedSchoolType, selectedCategory, selectedManagement,
+  
+  onYearChange, onStateChange, onDistrictChange, 
+  onSchoolTypeChange, onCategoryChange, onManagementChange,
+  
   showYear = true, isLoading = false,
 }: LocationFiltersProps) {
   return (
     <div className="filter-section space-y-4">
+      {/* Row 1: Year, State, District (Existing Code) */}
       <div className="grid gap-4 md:grid-cols-3">
+        {/* ... (Keep Year, State, District Selects as they were) ... */}
         {showYear && years && onYearChange && (
           <div className="space-y-2">
             <Label>Academic Year</Label>
@@ -63,7 +77,7 @@ export function LocationFilters({
             <SelectContent>
               {districts.map((d) => (
                 <SelectItem key={d.dtcode11} value={d.dtcode11}>
-                  {d.dtname} {d.school_count !== undefined ? `(${d.school_count})` : ''}
+                   {d.dtname} {d.school_count !== undefined ? `(${d.school_count})` : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -71,36 +85,51 @@ export function LocationFilters({
         </div>
       </div>
 
-      {/* [NEW ROW] Extra Filters */}
-      {(onCategoryChange || onManagementChange) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {onCategoryChange && categories && (
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={selectedCategory} onValueChange={onCategoryChange} disabled={isLoading || !selectedDistrict}>
-                <SelectTrigger className="bg-background"><SelectValue placeholder="All Categories" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+      {/* Row 2: School Type, Category, Management */}
+      <div className="grid gap-4 md:grid-cols-3">
+        
+        {/* 1. School Type Filter (Renamed) */}
+        {onSchoolTypeChange && schoolTypes && (
+          <div className="space-y-2">
+            <Label>School Type</Label>
+            <Select value={selectedSchoolType} onValueChange={onSchoolTypeChange} disabled={isLoading || !selectedDistrict}>
+              <SelectTrigger className="bg-background"><SelectValue placeholder="All School Types" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All School Types</SelectItem>
+                {schoolTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-          {onManagementChange && managements && (
-            <div className="space-y-2">
-              <Label>Management</Label>
-              <Select value={selectedManagement} onValueChange={onManagementChange} disabled={isLoading || !selectedDistrict}>
-                <SelectTrigger className="bg-background"><SelectValue placeholder="All Managements" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Managements</SelectItem>
-                  {managements.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-      )}
+        {/* 2. Category Filter (NEW) */}
+        {onCategoryChange && categories && (
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select value={selectedCategory} onValueChange={onCategoryChange} disabled={isLoading || !selectedDistrict}>
+              <SelectTrigger className="bg-background"><SelectValue placeholder="All Categories" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* 3. Management Filter */}
+        {onManagementChange && managements && (
+          <div className="space-y-2">
+            <Label>Management</Label>
+            <Select value={selectedManagement} onValueChange={onManagementChange} disabled={isLoading || !selectedDistrict}>
+              <SelectTrigger className="bg-background"><SelectValue placeholder="All Managements" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Managements</SelectItem>
+                {managements.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

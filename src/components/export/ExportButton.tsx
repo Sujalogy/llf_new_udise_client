@@ -1,40 +1,46 @@
 import { useState } from 'react';
-import { Download, ChevronDown, FileJson, FileSpreadsheet } from 'lucide-react';
+import { Download, ChevronDown, FileJson, Layers, Filter } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
 } from '../../components/ui/dropdown-menu';
 import { api } from '../../lib/api';
 import { toast } from '../../hooks/use-toast';
 
 interface ExportButtonProps {
-  stcode11: string;
-  dtcode11: string;
+  stcode11?: string;
+  dtcode11?: string;
+  yearId?: string;
+  schoolType?: string; // [UPDATED] Renamed from 'category' to match your School Type filter
+  category?: string;   // [NEW] The new DB column category
+  management?: string;
   disabled?: boolean;
 }
 
-export function ExportButton({ stcode11, dtcode11, disabled }: ExportButtonProps) {
+export function ExportButton({ 
+  stcode11, 
+  dtcode11, 
+  yearId, 
+  schoolType, 
+  category, 
+  management, 
+  disabled 
+}: ExportButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleExport = async (format: 'csv' | 'json') => {
-    if (!stcode11 || !dtcode11) {
-      toast({
-        title: 'Selection Required',
-        description: 'Please select both State and District to export data.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+  // Helper to trigger export
+  const runExport = async (format: 'csv' | 'json', filters: any) => {
     setIsExporting(true);
     try {
-      await api.exportSchools(stcode11, dtcode11, format);
+      await api.exportSchools(filters, format);
       toast({
         title: 'Export Successful',
-        description: `Schools data exported as ${format.toUpperCase()}.`,
+        description: `Data exported as ${format.toUpperCase()}.`,
       });
     } catch (error) {
       toast({
@@ -47,12 +53,35 @@ export function ExportButton({ stcode11, dtcode11, disabled }: ExportButtonProps
     }
   };
 
+  const handleCurrentViewExport = (format: 'csv' | 'json') => {
+    // [UPDATED] Passes schoolType and category separately
+    const filters = { 
+      stcode: stcode11, 
+      dtcode: dtcode11, 
+      yearId, 
+      schoolType, 
+      category, 
+      management 
+    };
+    runExport(format, filters);
+  };
+
+  const handleDistrictExport = (format: 'csv' | 'json') => {
+    if (!stcode11 || !dtcode11) {
+       toast({ title: "District Export", description: "Please select a State and District first.", variant: "destructive" });
+       return;
+    }
+    // Only pass location + year (ignoring category/management for "Full District Export")
+    const filters = { stcode: stcode11, dtcode: dtcode11, yearId };
+    runExport(format, filters);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          disabled={disabled || !dtcode11 || isExporting}
+          disabled={disabled || isExporting}
           className="gap-2"
         >
           {isExporting ? (
@@ -63,21 +92,36 @@ export function ExportButton({ stcode11, dtcode11, disabled }: ExportButtonProps
           ) : (
             <>
               <Download className="h-4 w-4" />
-              Export
+              Export Options
               <ChevronDown className="h-4 w-4" />
             </>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="bg-popover">
-        <DropdownMenuItem onClick={() => handleExport('csv')} className="gap-2">
-          <FileSpreadsheet className="h-4 w-4" />
-          Download as CSV
+      <DropdownMenuContent align="end" className="w-56">
+        
+        <DropdownMenuLabel>Current Filtered List</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => handleCurrentViewExport('csv')} className="gap-2">
+          <Filter className="h-4 w-4 text-blue-500" />
+          Export filtered (.csv)
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('json')} className="gap-2">
-          <FileJson className="h-4 w-4" />
-          Download as JSON
+        <DropdownMenuItem onClick={() => handleCurrentViewExport('json')} className="gap-2">
+          <FileJson className="h-4 w-4 text-blue-500" />
+          Export filtered (.json)
         </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuLabel>Full District Data</DropdownMenuLabel>
+        <DropdownMenuItem 
+          onClick={() => handleDistrictExport('csv')} 
+          disabled={!stcode11 || !dtcode11}
+          className="gap-2"
+        >
+          <Layers className="h-4 w-4 text-green-500" />
+          Export Entire District (.csv)
+        </DropdownMenuItem>
+
       </DropdownMenuContent>
     </DropdownMenu>
   );

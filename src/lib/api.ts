@@ -39,40 +39,56 @@ export const api = {
   // ... existing metadata & list APIs ...
   getYears: () => fetchApi<Year[]>("/years"),
   getFilters: () =>
-    fetchApi<{ categories: string[]; managements: string[] }>(
-      "/schools/filters"
-    ),
+    fetchApi<{
+      schoolTypes: string[];
+      categories: string[];
+      managements: string[];
+    }>("/schools/filters"),
   getMasterStates: (yearId: string) =>
     fetchApi<State[]>("/locations/master/states"),
   getMasterDistricts: (stateCode: string, yearId: string) =>
     fetchApi<District[]>(`/locations/master/districts/${stateCode}`),
-  getSyncedStates: () => fetchApi<State[]>("/locations/synced/states"),
-  getSyncedDistricts: (stateCode: string) =>
-    fetchApi<District[]>(`/locations/synced/districts/${stateCode}`),
+  getSyncedStates: (yearId?: string) =>
+    fetchApi<State[]>(
+      `/locations/synced/states${yearId ? `?yearId=${yearId}` : ""}`
+    ),
+  getSyncedDistricts: (stateCode: string, yearId?: string) =>
+    fetchApi<District[]>(
+      `/locations/synced/districts/${stateCode}${
+        yearId ? `?yearId=${yearId}` : ""
+      }`
+    ),
   getCategories: () =>
     fetchApi<{ catId: string; category: string }[]>("/categories"),
   getManagements: () => Promise.resolve([]),
 
-  getUdiseList: (
-    stcode: string,
-    dtcode: string,
+getUdiseList: (
+    stcode?: string,
+    dtcode?: string,
     page = 1,
     limit = 100,
-    category?: string,
+    schoolType?: string, // [Renamed from category]
     management?: string,
-    yearId?: string // [NEW]
+    yearId?: string,
+    search?: string,
+    category?: string    // [NEW]
   ) => {
-    let url = `/schools/list?stcode11=${stcode}&dtcode11=${dtcode}&page=${page}&limit=${limit}`;
-    if (category && category !== "all")
-      url += `&category=${encodeURIComponent(category)}`;
-    if (management && management !== "all")
-      url += `&management=${encodeURIComponent(management)}`;
-    if (yearId) url += `&yearId=${encodeURIComponent(yearId)}`; // [NEW]
+    const params = new URLSearchParams();
+    if (stcode) params.append('stcode11', stcode);
+    if (dtcode) params.append('dtcode11', dtcode);
+    if (schoolType && schoolType !== 'all') params.append('schoolType', schoolType);
+    if (category && category !== 'all') params.append('category', category); // [NEW]
+    if (management && management !== 'all') params.append('management', management);
+    if (yearId) params.append('yearId', yearId);
+    if (search) params.append('search', search);
+    
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
 
     return fetchApi<{
       data: School[];
       meta: { page: number; limit: number; count: number; total: number };
-    }>(url);
+    }>(`/schools/list?${params.toString()}`);
   },
   searchSchools: (searchType: number, searchParam: string) =>
     fetchApi<School[]>(
@@ -148,12 +164,27 @@ export const api = {
   getStateWiseStats: () => Promise.resolve([]),
 
   exportSchools: async (
-    stcode: string,
-    dtcode: string,
+    filters: {
+      stcode?: string;
+      dtcode?: string;
+      yearId?: string;
+      category?: string;
+      management?: string;
+    },
     format: "csv" | "json"
   ) => {
+    const params = new URLSearchParams();
+    if (filters.stcode) params.append("stcode11", filters.stcode);
+    if (filters.dtcode) params.append("dtcode11", filters.dtcode);
+    if (filters.yearId) params.append("yearId", filters.yearId);
+    if (filters.category && filters.category !== "all")
+      params.append("category", filters.category);
+    if (filters.management && filters.management !== "all")
+      params.append("management", filters.management);
+    params.append("format", format);
+
     const response = await fetch(
-      `${API_BASE}/schools/export/list?stcode11=${stcode}&dtcode11=${dtcode}&format=${format}`,
+      `${API_BASE}/schools/export/list?${params.toString()}`,
       { headers: { "Content-Type": "application/json" } }
     );
     if (!response.ok) throw new Error("Export failed");
@@ -161,7 +192,7 @@ export const api = {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `schools_list.${format}`;
+    a.download = `schools_export.${format}`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
