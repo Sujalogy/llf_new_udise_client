@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, FilterX } from 'lucide-react'; 
 import { Input } from '../components/ui/input';
+import { Badge } from '../components/ui/badge'; 
+import { Button } from '../components/ui/button'; 
 import { ExportButton } from '../components/export/ExportButton';
 import { SchoolsTable } from '../components/schools/SchoolsTable';
 import { LocationFilters } from '../components/filters/LocationFilters';
@@ -22,8 +24,8 @@ export default function MySchools() {
   const [states, setStates] = useState<State[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   
-  const [schoolTypes, setSchoolTypes] = useState<string[]>([]); // Renamed from categories
-  const [categories, setCategories] = useState<string[]>([]);   // New Category list
+  const [schoolTypes, setSchoolTypes] = useState<string[]>([]); 
+  const [categories, setCategories] = useState<string[]>([]);   
   const [managements, setManagements] = useState<string[]>([]);
 
   // Selection States
@@ -52,7 +54,6 @@ export default function MySchools() {
           api.getFilters()
         ]);
         setYears(yearsData);
-        // Map API response to local state
         setSchoolTypes(filters.schoolTypes || []);
         setCategories(filters.categories || []);
         setManagements(filters.managements || []);
@@ -67,7 +68,6 @@ export default function MySchools() {
   useEffect(() => {
     async function fetchStates() {
       try {
-        // Fetch states that actually have data for the selected year
         const statesData = await api.getSyncedStates(selectedYear);
         setStates(statesData);
       } catch (error) {
@@ -98,21 +98,20 @@ export default function MySchools() {
   useEffect(() => {
     setPage(1);
     setHasMore(true);
-    // When filters change, we reset the list, so data fetch will be triggered by the next effect
   }, [
     selectedDistrict, selectedState, selectedYear, 
     selectedSchoolType, selectedCategory, selectedManagement, 
     searchQuery
   ]);
 
-  // 5. Main Data Fetch (Dynamic Table)
+  // 5. Main Data Fetch
   useEffect(() => {
     async function fetchSchools() {
       const isInitial = page === 1;
 
       if (isInitial) {
         setIsLoading(true);
-        setSchools([]); // Clear old data for fresh filter
+        setSchools([]);
       } else {
         setIsLoadingMore(true);
       }
@@ -123,15 +122,44 @@ export default function MySchools() {
           selectedDistrict || '', 
           page, 
           PAGE_LIMIT,
-          selectedSchoolType, // Passed as schoolType
+          selectedSchoolType,
           selectedManagement,
           selectedYear,
           searchQuery,
-          selectedCategory    // Passed as category
+          selectedCategory
         );
         
-        const newSchools = result.data || [];
-        const globalTotal = result.meta?.total || 0;
+        let newSchools = result.data || [];
+        let globalTotal = result.meta?.total || 0;
+
+        // --- STRICT YEAR FILTER FIX ---
+        // If the backend returns a default year when data is missing, we filter it out.
+        // Updated to be more robust for different string formats.
+        if (selectedYear && years.length > 0) {
+          const currentYearObj = years.find(y => String(y.yearId) === selectedYear);
+          
+          if (currentYearObj) {
+            const match1 = String(currentYearObj.yearDesc).trim().toLowerCase();
+            const match2 = currentYearObj.yearName ? String(currentYearObj.yearName).trim().toLowerCase() : '';
+            
+            // Check if returned data matches the requested year
+            const originalCount = newSchools.length;
+            newSchools = newSchools.filter(s => {
+              if (!s.year_desc) return true; // Keep if no year info (safe fallback)
+              
+              const sYear = String(s.year_desc).trim().toLowerCase();
+              
+              // Match exact, or check if one contains the other (e.g. "2022" in "2022-23")
+              return sYear === match1 || sYear === match2 || sYear.includes(match1);
+            });
+
+            // If we filtered out EVERYTHING (indicating backend sent wrong year), reset total
+            if (originalCount > 0 && newSchools.length === 0) {
+              globalTotal = 0;
+            }
+          }
+        }
+        // ------------------------------
 
         if (isInitial) {
           setSchools(newSchools);
@@ -148,7 +176,6 @@ export default function MySchools() {
       }
     }
 
-    // Debounce search slightly
     const timeoutId = setTimeout(() => {
         fetchSchools();
     }, 300);
@@ -162,7 +189,8 @@ export default function MySchools() {
     selectedCategory, 
     selectedManagement, 
     selectedYear, 
-    searchQuery
+    searchQuery,
+    years
   ]);
 
   // 6. Infinite Scroll Observer
@@ -181,9 +209,22 @@ export default function MySchools() {
 
 
   // Handlers
-  const handleYearChange = (val: string) => setSelections(val, '', ''); 
+  // [CHANGED] Preserve selectedState and selectedDistrict when Year changes
+  const handleYearChange = (val: string) => {
+    setSelections(val, selectedState, selectedDistrict);
+  };
+  
   const handleStateChange = (val: string) => setSelections(selectedYear, val, '');
   const handleDistrictChange = (val: string) => setSelections(selectedYear, selectedState, val);
+
+  const clearFilters = () => {
+    setSelectedSchoolType('all');
+    setSelectedCategory('all');
+    setSelectedManagement('all');
+    setSearchQuery('');
+  };
+
+  const hasActiveFilters = selectedSchoolType !== 'all' || selectedCategory !== 'all' || selectedManagement !== 'all' || searchQuery;
 
   return (
     <div className="animate-fade-in pb-10">
@@ -197,27 +238,21 @@ export default function MySchools() {
           years={years}
           states={states}
           districts={districts}
-          
-          schoolTypes={schoolTypes} // Data
-          categories={categories}   // Data
-          managements={managements} // Data
-          
+          schoolTypes={schoolTypes}
+          categories={categories}
+          managements={managements}
           selectedYear={selectedYear}
           selectedState={selectedState}
           selectedDistrict={selectedDistrict}
-          
-          selectedSchoolType={selectedSchoolType} // Selection
-          selectedCategory={selectedCategory}     // Selection
-          selectedManagement={selectedManagement} // Selection
-          
+          selectedSchoolType={selectedSchoolType}
+          selectedCategory={selectedCategory}
+          selectedManagement={selectedManagement}
           onYearChange={handleYearChange}
           onStateChange={handleStateChange}
           onDistrictChange={handleDistrictChange}
-          
           onSchoolTypeChange={setSelectedSchoolType}
           onCategoryChange={setSelectedCategory}
           onManagementChange={setSelectedManagement}
-          
           showYear={true}
         />
         
@@ -244,15 +279,54 @@ export default function MySchools() {
         </div>
       </div>
 
-      <div className="mb-4">
-          <p className="text-sm text-muted-foreground">
-            Found {totalCount} schools matching your criteria.
-          </p>
+      {/* --- STATS STRIP --- */}
+      <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 mb-4 flex flex-wrap gap-4 items-center justify-between text-sm shadow-sm">
+        <div className="flex flex-wrap items-center gap-4">
+            
+            {/* Total Count */}
+            <div className="flex items-center gap-2">
+                <span className="font-semibold text-foreground">Total Schools Found:</span>
+                <Badge variant="default" className="text-sm px-2.5">{totalCount.toLocaleString()}</Badge>
+            </div>
+
+            <div className="h-4 w-px bg-border hidden sm:block"></div>
+
+            {/* Active Filters Badges */}
+            <div className="flex flex-wrap gap-2 items-center">
+                {selectedSchoolType !== 'all' && (
+                    <Badge variant="secondary" className="border-border">
+                        Type: {selectedSchoolType}
+                    </Badge>
+                )}
+                {selectedCategory !== 'all' && (
+                    <Badge variant="secondary" className="border-border">
+                        Cat: {selectedCategory}
+                    </Badge>
+                )}
+                {selectedManagement !== 'all' && (
+                    <Badge variant="secondary" className="border-border">
+                        Mgmt: {selectedManagement}
+                    </Badge>
+                )}
+                {searchQuery && (
+                     <Badge variant="secondary" className="border-border">
+                        Search: "{searchQuery}"
+                    </Badge>
+                )}
+            </div>
+        </div>
+
+        {/* Clear Filters Action */}
+        {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs text-muted-foreground hover:text-destructive">
+                <FilterX className="h-3.5 w-3.5 mr-1" />
+                Clear Filters
+            </Button>
+        )}
       </div>
 
       <SchoolsTable schools={schools} isLoading={isLoading} />
 
-      {/* Infinite Scroll Sentinel */}
       <div ref={observerTarget} className="h-20 flex items-center justify-center">
         {isLoadingMore && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
         {!hasMore && schools.length > 0 && <span className="text-sm text-muted-foreground">End of list</span>}

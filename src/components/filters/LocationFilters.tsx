@@ -7,24 +7,24 @@ interface LocationFiltersProps {
   states: State[];
   districts: District[];
   
-  schoolTypes?: string[]; // [RENAMED from categories]
-  categories?: string[];  // [NEW]
+  schoolTypes?: string[];
+  categories?: string[];
   managements?: string[];
   
   selectedYear?: string;
   selectedState: string;
   selectedDistrict: string;
   
-  selectedSchoolType?: string; // [RENAMED]
-  selectedCategory?: string;   // [NEW]
+  selectedSchoolType?: string;
+  selectedCategory?: string;
   selectedManagement?: string;
 
   onYearChange?: (val: string) => void;
   onStateChange: (val: string) => void;
   onDistrictChange: (val: string) => void;
   
-  onSchoolTypeChange?: (val: string) => void; // [RENAMED]
-  onCategoryChange?: (val: string) => void;   // [NEW]
+  onSchoolTypeChange?: (val: string) => void;
+  onCategoryChange?: (val: string) => void;
   onManagementChange?: (val: string) => void;
 
   showYear?: boolean;
@@ -45,9 +45,8 @@ export function LocationFilters({
 }: LocationFiltersProps) {
   return (
     <div className="filter-section space-y-4">
-      {/* Row 1: Year, State, District (Existing Code) */}
+      {/* Row 1: Year, State, District */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* ... (Keep Year, State, District Selects as they were) ... */}
         {showYear && years && onYearChange && (
           <div className="space-y-2">
             <Label>Academic Year</Label>
@@ -85,14 +84,15 @@ export function LocationFilters({
         </div>
       </div>
 
-      {/* Row 2: School Type, Category, Management */}
+      {/* Row 2: School Type, Category, Management (Decoupled from District) */}
       <div className="grid gap-4 md:grid-cols-3">
         
-        {/* 1. School Type Filter (Renamed) */}
+        {/* 1. School Type Filter */}
         {onSchoolTypeChange && schoolTypes && (
           <div className="space-y-2">
             <Label>School Type</Label>
-            <Select value={selectedSchoolType} onValueChange={onSchoolTypeChange} disabled={isLoading || !selectedDistrict}>
+            {/* REMOVED: !selectedDistrict from disabled prop */}
+            <Select value={selectedSchoolType} onValueChange={onSchoolTypeChange} disabled={isLoading}>
               <SelectTrigger className="bg-background"><SelectValue placeholder="All School Types" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All School Types</SelectItem>
@@ -102,11 +102,12 @@ export function LocationFilters({
           </div>
         )}
 
-        {/* 2. Category Filter (NEW) */}
+        {/* 2. Category Filter */}
         {onCategoryChange && categories && (
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select value={selectedCategory} onValueChange={onCategoryChange} disabled={isLoading || !selectedDistrict}>
+            {/* REMOVED: !selectedDistrict from disabled prop */}
+            <Select value={selectedCategory} onValueChange={onCategoryChange} disabled={isLoading}>
               <SelectTrigger className="bg-background"><SelectValue placeholder="All Categories" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
@@ -120,7 +121,8 @@ export function LocationFilters({
         {onManagementChange && managements && (
           <div className="space-y-2">
             <Label>Management</Label>
-            <Select value={selectedManagement} onValueChange={onManagementChange} disabled={isLoading || !selectedDistrict}>
+            {/* REMOVED: !selectedDistrict from disabled prop */}
+            <Select value={selectedManagement} onValueChange={onManagementChange} disabled={isLoading}>
               <SelectTrigger className="bg-background"><SelectValue placeholder="All Managements" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Managements</SelectItem>
