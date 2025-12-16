@@ -227,3 +227,18 @@ export interface SkippedSchool {
   dtname?: string;
   school_name?: string;
 }
+
+export interface MatrixStats {
+  schools: number;
+  districts: number;
+  blocks: number;
+  teachers: number;
+  students: number;
+}
+
+export interface MatrixNode {
+  type: 'state' | 'district';
+  name: string;
+  stats: MatrixStats;
+  districts?: MatrixNode[];
+}

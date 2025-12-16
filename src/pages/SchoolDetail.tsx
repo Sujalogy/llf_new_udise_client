@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, MapPin, Building2, Users,
+  ArrowLeft, MapPin, Building2, 
   CheckCircle2, XCircle, School, BookOpen, UserCircle, 
   Droplets, Zap, Accessibility, Phone, Calendar, Monitor, 
   ClipboardCheck, GraduationCap, LayoutGrid
@@ -57,7 +57,8 @@ export default function SchoolDetail() {
         </div>
         <h2 className="text-xl font-semibold">School data not found</h2>
         <p className="text-muted-foreground">Please sync this school in the Admin panel first.</p>
-        <Button onClick={() => navigate('/my-schools')}>Back to List</Button>
+        {/* UPDATED: Uses navigate(-1) to preserve filters */}
+        <Button onClick={() => navigate(-1)}>Back to List</Button>
       </div>
     );
   }
@@ -77,7 +78,8 @@ export default function SchoolDetail() {
       {/* 1. HERO HEADER */}
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="flex gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate('/my-schools')} className="shrink-0 mt-1">
+          {/* UPDATED: Uses navigate(-1) to preserve filters */}
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)} className="shrink-0 mt-1">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -386,7 +388,6 @@ export default function SchoolDetail() {
           
           {/* TAB: STUDENTS (Existing) */}
           <TabsContent value="students" className="space-y-6">
-             {/* ... Keep existing Students tab content but reuse new data if needed ... */}
              <div className="grid gap-6 md:grid-cols-3">
               <Card className="col-span-2">
                 <CardHeader>

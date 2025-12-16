@@ -12,7 +12,8 @@ import type {
   StateWiseStats,
   SyncStatus,
   DashboardData,
-  SkippedSchool, // Ensure this is exported from types/school.ts
+  SkippedSchool,
+  MatrixNode, // Ensure this is exported from types/school.ts
 } from "../types/school";
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL;
@@ -62,33 +63,59 @@ export const api = {
     fetchApi<{ catId: string; category: string }[]>("/categories"),
   getManagements: () => Promise.resolve([]),
 
-getUdiseList: (
+  getUdiseList: (
     stcode?: string,
     dtcode?: string,
     page = 1,
     limit = 100,
-    schoolType?: string, // [Renamed from category]
+    schoolType?: string,
     management?: string,
     yearId?: string,
     search?: string,
-    category?: string    // [NEW]
+    category?: string
   ) => {
     const params = new URLSearchParams();
-    if (stcode) params.append('stcode11', stcode);
-    if (dtcode) params.append('dtcode11', dtcode);
-    if (schoolType && schoolType !== 'all') params.append('schoolType', schoolType);
-    if (category && category !== 'all') params.append('category', category); // [NEW]
-    if (management && management !== 'all') params.append('management', management);
-    if (yearId) params.append('yearId', yearId);
-    if (search) params.append('search', search);
-    
-    params.append('page', page.toString());
-    params.append('limit', limit.toString());
+    if (stcode) params.append("stcode11", stcode);
+    if (dtcode) params.append("dtcode11", dtcode);
+    if (schoolType && schoolType !== "all")
+      params.append("schoolType", schoolType);
+    if (category && category !== "all") params.append("category", category);
+    if (management && management !== "all")
+      params.append("management", management);
+    if (yearId) params.append("yearId", yearId);
+    if (search) params.append("search", search);
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
 
-    return fetchApi<{
-      data: School[];
-      meta: { page: number; limit: number; count: number; total: number };
-    }>(`/schools/list?${params.toString()}`);
+    return fetchApi<{ data: School[]; meta: { total: number } }>(
+      `/schools/list?${params.toString()}`
+    );
+  },
+  getSkippedSummary: (yearId?: string, stcode?: string) => {
+    const params = new URLSearchParams();
+    if (yearId) params.append('yearId', yearId);
+    if (stcode) params.append('stcode11', stcode);
+    return fetchApi<{ state: string; district: string; count: number; year: string }[]>(`/schools/skipped/summary?${params.toString()}`);
+  },
+  exportSkippedList: async (format: 'csv' | 'json', filters: { yearId?: string; stcode?: string; dtcode?: string }) => {
+    const params = new URLSearchParams();
+    params.append('format', format);
+    if (filters.yearId) params.append('yearId', filters.yearId);
+    if (filters.stcode) params.append('stcode11', filters.stcode);
+    if (filters.dtcode) params.append('dtcode11', filters.dtcode);
+
+    const response = await fetch(`${API_BASE}/schools/skipped/export?${params.toString()}`);
+    if (!response.ok) throw new Error("Export failed");
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `skipped_schools_${new Date().toISOString()}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   },
   searchSchools: (searchType: number, searchParam: string) =>
     fetchApi<School[]>(
@@ -206,4 +233,5 @@ getUdiseList: (
       teachers: TeacherStats;
       stats: any; // Add specific type if needed
     }>(`/schools/local-details/${schoolId}`),
+    getStateMatrix: () => fetchApi<MatrixNode[]>("/schools/stats/matrix"),
 };
