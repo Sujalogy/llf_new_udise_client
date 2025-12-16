@@ -107,6 +107,28 @@ export default function MySchools() {
   // 5. Main Data Fetch
   useEffect(() => {
     async function fetchSchools() {
+      // --- LOGIC TO PREVENT EMPTY FETCHING ---
+      // We check if any "active" filter is set. 
+      // We typically exclude 'selectedYear' from this check if it has a default value,
+      // ensuring we don't fetch until the user picks a location or types a search.
+      const hasActiveFilters = 
+        selectedState || 
+        selectedDistrict || 
+        searchQuery || 
+        selectedSchoolType !== 'all' || 
+        selectedCategory !== 'all' || 
+        selectedManagement !== 'all';
+
+      if (!hasActiveFilters) {
+        // Clear table and stop if no specific filters are applied
+        setSchools([]);
+        setTotalCount(0);
+        setIsLoading(false);
+        setIsLoadingMore(false);
+        return;
+      }
+      // ---------------------------------------
+
       const isInitial = page === 1;
 
       if (isInitial) {
@@ -133,8 +155,6 @@ export default function MySchools() {
         let globalTotal = result.meta?.total || 0;
 
         // --- STRICT YEAR FILTER FIX ---
-        // If the backend returns a default year when data is missing, we filter it out.
-        // Updated to be more robust for different string formats.
         if (selectedYear && years.length > 0) {
           const currentYearObj = years.find(y => String(y.yearId) === selectedYear);
           
@@ -142,18 +162,13 @@ export default function MySchools() {
             const match1 = String(currentYearObj.yearDesc).trim().toLowerCase();
             const match2 = currentYearObj.yearName ? String(currentYearObj.yearName).trim().toLowerCase() : '';
             
-            // Check if returned data matches the requested year
             const originalCount = newSchools.length;
             newSchools = newSchools.filter(s => {
-              if (!s.year_desc) return true; // Keep if no year info (safe fallback)
-              
+              if (!s.year_desc) return true; 
               const sYear = String(s.year_desc).trim().toLowerCase();
-              
-              // Match exact, or check if one contains the other (e.g. "2022" in "2022-23")
               return sYear === match1 || sYear === match2 || sYear.includes(match1);
             });
 
-            // If we filtered out EVERYTHING (indicating backend sent wrong year), reset total
             if (originalCount > 0 && newSchools.length === 0) {
               globalTotal = 0;
             }
@@ -209,7 +224,6 @@ export default function MySchools() {
 
 
   // Handlers
-  // [CHANGED] Preserve selectedState and selectedDistrict when Year changes
   const handleYearChange = (val: string) => {
     setSelections(val, selectedState, selectedDistrict);
   };
