@@ -45,7 +45,7 @@ export default function Auth() {
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-xl bg-primary mb-4">
             <GraduationCap className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold">School Data Management</h1>
+          <h1 className="text-2xl font-bold">School Directory</h1>
           <p className="text-muted-foreground mt-2">
             Sign in to access the dashboard
           </p>
