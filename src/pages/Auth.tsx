@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GraduationCap, AlertCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -9,33 +9,37 @@ export default function Auth() {
   const { signInWithGoogle, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
-  const [isSigningIn, setIsSigningIn] = useState(false);
 
-  // Redirect if logged in
+  /* ================= REDIRECT ON LOGIN ================= */
+
   useEffect(() => {
-    if (user) navigate("/");
+    if (user) {
+      navigate("/", { replace: true });
+    }
   }, [user, navigate]);
 
+  /* ================= HANDLER ================= */
+
   const handleGoogleSignIn = () => {
-    setIsSigningIn(true);
     setAuthError(null);
 
     try {
       signInWithGoogle();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "An unexpected error occurred";
+        err instanceof Error ? err.message : "Authentication failed";
 
       setAuthError(message);
+
       toast({
         title: "Authentication Error",
         description: message,
         variant: "destructive",
       });
-    } finally {
-      setIsSigningIn(false);
     }
   };
+
+  /* ================= UI ================= */
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -72,11 +76,11 @@ export default function Auth() {
             {/* Button */}
             <Button
               onClick={handleGoogleSignIn}
-              disabled={isSigningIn || isLoading}
+              disabled={isLoading}
               className="w-full h-12 gap-3"
               size="lg"
             >
-              {isSigningIn ? (
+              {isLoading ? (
                 <>
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   Signing in...

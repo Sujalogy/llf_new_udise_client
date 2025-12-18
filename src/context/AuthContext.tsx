@@ -37,8 +37,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   role: undefined,
   isLoading: true,
-  signInWithGoogle: () => {},
-  signOut: () => {},
+  signInWithGoogle: () => { },
+  signOut: () => { },
 });
 
 /* ===================== PROVIDER ===================== */
@@ -85,13 +85,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           const apiResponse = await fetch(`${API_BASE}/auth/google`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+            },
             credentials: "include",
             body: JSON.stringify({
-              email: payload.email,
-              name: payload.name,
-              picture: payload.picture,
-              googleId: payload.sub,
+              credential: response.credential, // 🔥 THIS IS REQUIRED
             }),
           });
 
