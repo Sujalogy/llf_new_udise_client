@@ -74,14 +74,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
-      use_fedcm_for_prompt: false,
       callback: async (response: any) => {
         try {
           setIsLoading(true);
 
-          const payload = JSON.parse(
-            atob(response.credential.split(".")[1])
-          );
+          if (!response?.credential) {
+            throw new Error("Google credential missing");
+          }
 
           const apiResponse = await fetch(`${API_BASE}/auth/google`, {
             method: "POST",
@@ -90,7 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             },
             credentials: "include",
             body: JSON.stringify({
-              credential: response.credential, // 🔥 THIS IS REQUIRED
+              credential: response.credential,
             }),
           });
 
@@ -98,8 +97,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (!apiResponse.ok) throw new Error(data.error);
 
           localStorage.setItem("user", JSON.stringify(data.user));
-          localStorage.setItem("authToken", data.token);
-
           setUser(data.user);
         } catch (err) {
           console.error("Login failed", err);
@@ -111,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     window.google.accounts.id.prompt();
   };
+
 
   const signOut = () => {
     window.google?.accounts.id.disableAutoSelect();
