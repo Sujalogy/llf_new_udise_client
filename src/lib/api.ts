@@ -26,6 +26,7 @@ async function fetchApi<T>(
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     ...options,
   });
 
@@ -104,7 +105,10 @@ export const api = {
     if (filters.stcode) params.append('stcode11', filters.stcode);
     if (filters.dtcode) params.append('dtcode11', filters.dtcode);
 
-    const response = await fetch(`${API_BASE}/schools/skipped/export?${params.toString()}`);
+    const response = await fetch(`${API_BASE}/schools/skipped/export?${params.toString()}`,{
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
     if (!response.ok) throw new Error("Export failed");
     
     const blob = await response.blob();
@@ -212,7 +216,7 @@ export const api = {
 
     const response = await fetch(
       `${API_BASE}/schools/export/list?${params.toString()}`,
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" },credentials: "include" }
     );
     if (!response.ok) throw new Error("Export failed");
     const blob = await response.blob();

@@ -1,52 +1,49 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 import { API_BASE } from "../lib/api";
 
-// 1. Declare window extension so TS knows about window.google
 declare global {
   interface Window {
     google: any;
   }
 }
 
-interface GoogleUser {
-  id: number;
+export interface GoogleUser {
+  id?: number;
   email: string;
   name: string;
   picture: string;
-  role: string; // Ensure this exists
+  role: string;
 }
 
 interface AuthContextType {
   user: GoogleUser | null;
-  role: string | undefined; // <--- ADDED THIS
+  role?: string;
   isLoading: boolean;
   signInWithGoogle: () => void;
   signOut: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+/**
+ * ✅ IMPORTANT:
+ * Do NOT use `undefined` here – it breaks Fast Refresh
+ */
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  role: undefined,
+  isLoading: true,
+  signInWithGoogle: () => {},
+  signOut: () => {},
+});
 
-function parseJwt(token: string) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
-        .split('')
-        .map(function (c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        })
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    console.error("Failed to parse JWT", e);
-    return null;
-  }
-}
+/* ===================== PROVIDER ===================== */
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -64,52 +61,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        console.error("Failed to parse stored user", e);
-        localStorage.removeItem("user");
-      }
+      setUser(JSON.parse(savedUser));
     }
     setIsLoading(false);
   }, []);
 
   const signInWithGoogle = () => {
-    if (!window.google) return alert("Google Sign-In script not loaded.");
-    
+    if (!window.google) {
+      alert("Google script not loaded");
+      return;
+    }
+
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       use_fedcm_for_prompt: false,
       callback: async (response: any) => {
         try {
           setIsLoading(true);
-          const payload = parseJwt(response.credential);
-          if (!payload) throw new Error("Invalid token");
 
-          const userData = {
-            email: payload.email,
-            name: payload.name,
-            picture: payload.picture,
-            googleId: payload.sub
-          };
+          const payload = JSON.parse(
+            atob(response.credential.split(".")[1])
+          );
 
           const apiResponse = await fetch(`${API_BASE}/auth/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              email: payload.email,
+              name: payload.name,
+              picture: payload.picture,
+              googleId: payload.sub,
+            }),
           });
 
           const data = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error(data.error || 'Login failed');
+          if (!apiResponse.ok) throw new Error(data.error);
 
-          localStorage.setItem("authToken", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
-          
-          setUser(data.user); // data.user includes 'role' from backend
-          
-        } catch (error) {
-          console.error("Login Error:", error);
-          alert("Login failed");
+          localStorage.setItem("authToken", data.token);
+
+          setUser(data.user);
+        } catch (err) {
+          console.error("Login failed", err);
         } finally {
           setIsLoading(false);
         }
@@ -120,9 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = () => {
-    if (window.google) window.google.accounts.id.disableAutoSelect();
-    localStorage.removeItem("user");
-    localStorage.removeItem("authToken");
+    window.google?.accounts.id.disableAutoSelect();
+    localStorage.clear();
     setUser(null);
   };
 
@@ -130,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        role: user?.role, // <--- IMPORTANT: Pass role directly here
+        role: user?.role,
         isLoading,
         signInWithGoogle,
         signOut,
@@ -139,10 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-} 
+/* ===================== HOOK ===================== */
+
+export const useAuth = () => useContext(AuthContext);
