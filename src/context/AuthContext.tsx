@@ -1,15 +1,17 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+// src/context/AuthContext.tsx
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { API_BASE } from "../lib/api";
 
 declare global {
   interface Window {
-    google: any;
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: any) => void;
+          prompt: (callback: (notification: any) => void) => void;
+        };
+      };
+    };
   }
 }
 
@@ -25,112 +27,118 @@ interface AuthContextType {
   user: GoogleUser | null;
   role?: string;
   isLoading: boolean;
+  authError: string | null;
+  setAuthError: (err: string | null) => void;
   signInWithGoogle: () => void;
   signOut: () => void;
 }
 
-/**
- * ✅ IMPORTANT:
- * Do NOT use `undefined` here – it breaks Fast Refresh
- */
 const AuthContext = createContext<AuthContextType>({
   user: null,
   role: undefined,
   isLoading: true,
+  authError: null,
+  setAuthError: () => {},
   signInWithGoogle: () => { },
   signOut: () => { },
 });
 
-/* ===================== PROVIDER ===================== */
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+  // 1. Initialize Google Identity Services ONCE on mount
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
-    script.defer = true;
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+          auto_select: false,
+          itp_support: true,
+        });
+      }
+    };
     document.head.appendChild(script);
     return () => { document.head.removeChild(script); };
   }, []);
 
+  // 2. Check session on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+        }
+      } catch (err) {
+        console.error("Initial auth check failed", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkAuth();
   }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      const apiRes = await fetch(`${API_BASE}/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ credential: response.credential }),
+      });
+
+      const data = await apiRes.json();
+      if (!apiRes.ok) {
+        setAuthError(data.message || data.error);
+        return;
+      }
+      setUser(data.user);
+    } catch (err: any) {
+      setAuthError("Failed to connect to authentication server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const signInWithGoogle = () => {
     if (!window.google) {
-      alert("Google script not loaded");
+      setAuthError("Google Sign-In is still loading. Please wait.");
       return;
     }
-
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: async (response: any) => {
-        try {
-          setIsLoading(true);
-
-          if (!response?.credential) {
-            throw new Error("Google credential missing");
-          }
-
-          const apiResponse = await fetch(`${API_BASE}/auth/google`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              credential: response.credential,
-            }),
-          });
-
-          const data = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error(data.error);
-
-          localStorage.setItem("user", JSON.stringify(data.user));
-          setUser(data.user);
-        } catch (err) {
-          console.error("Login failed", err);
-        } finally {
-          setIsLoading(false);
-        }
-      },
+    // Only prompt, don't re-initialize
+    window.google.accounts.id.prompt((notification: any) => {
+      if (notification.isNotDisplayed()) {
+        console.warn("Prompt not displayed:", notification.getNotDisplayedReason());
+        // Fallback: If prompt is blocked, try calling the popup explicitly or show manual login
+      }
     });
-
-    window.google.accounts.id.prompt();
   };
 
-
-  const signOut = () => {
-    window.google?.accounts.id.disableAutoSelect();
-    localStorage.clear();
-    setUser(null);
+  const signOut = async () => {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" });
+    } finally {
+      setUser(null);
+      setAuthError(null);
+    }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        role: user?.role,
-        isLoading,
-        signInWithGoogle,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={{ user, role: user?.role, isLoading, authError, setAuthError, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-/* ===================== HOOK ===================== */
 
 export const useAuth = () => useContext(AuthContext);

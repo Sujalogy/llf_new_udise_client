@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./context/AuthContext";
 import { SyncProvider } from "./context/SyncContext";
 import SkippedSchools from "./pages/SkippedSchools";
+import AdminUsers from "./pages/AdminUsers"; // [NEW] Import the management page
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredRole="admin">
                       <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* [NEW] User Management Route */}
+                <Route
+                  path="/admin/users"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AdminUsers />
                     </ProtectedRoute>
                   }
                 />

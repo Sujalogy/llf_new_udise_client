@@ -63,7 +63,12 @@ export const api = {
   getCategories: () =>
     fetchApi<{ catId: string; category: string }[]>("/categories"),
   getManagements: () => Promise.resolve([]),
-
+  getAdminUsers: () => fetchApi<any[]>("/admin/users"),
+  updateUserStatus: (userId: number, status: string) =>
+    fetchApi("/admin/users/status", {
+      method: "POST",
+      body: JSON.stringify({ userId, status }),
+    }),
   getUdiseList: (
     stcode?: string,
     dtcode?: string,
@@ -94,23 +99,31 @@ export const api = {
   },
   getSkippedSummary: (yearId?: string, stcode?: string) => {
     const params = new URLSearchParams();
-    if (yearId) params.append('yearId', yearId);
-    if (stcode) params.append('stcode11', stcode);
-    return fetchApi<{ state: string; district: string; count: number; year: string }[]>(`/schools/skipped/summary?${params.toString()}`);
+    if (yearId) params.append("yearId", yearId);
+    if (stcode) params.append("stcode11", stcode);
+    return fetchApi<
+      { state: string; district: string; count: number; year: string }[]
+    >(`/schools/skipped/summary?${params.toString()}`);
   },
-  exportSkippedList: async (format: 'csv' | 'json', filters: { yearId?: string; stcode?: string; dtcode?: string }) => {
+  exportSkippedList: async (
+    format: "csv" | "json",
+    filters: { yearId?: string; stcode?: string; dtcode?: string }
+  ) => {
     const params = new URLSearchParams();
-    params.append('format', format);
-    if (filters.yearId) params.append('yearId', filters.yearId);
-    if (filters.stcode) params.append('stcode11', filters.stcode);
-    if (filters.dtcode) params.append('dtcode11', filters.dtcode);
+    params.append("format", format);
+    if (filters.yearId) params.append("yearId", filters.yearId);
+    if (filters.stcode) params.append("stcode11", filters.stcode);
+    if (filters.dtcode) params.append("dtcode11", filters.dtcode);
 
-    const response = await fetch(`${API_BASE}/schools/skipped/export?${params.toString()}`,{
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    });
+    const response = await fetch(
+      `${API_BASE}/schools/skipped/export?${params.toString()}`,
+      {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      }
+    );
     if (!response.ok) throw new Error("Export failed");
-    
+
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -216,7 +229,10 @@ export const api = {
 
     const response = await fetch(
       `${API_BASE}/schools/export/list?${params.toString()}`,
-      { headers: { "Content-Type": "application/json" },credentials: "include" }
+      {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      }
     );
     if (!response.ok) throw new Error("Export failed");
     const blob = await response.blob();
@@ -237,5 +253,5 @@ export const api = {
       teachers: TeacherStats;
       stats: any; // Add specific type if needed
     }>(`/schools/local-details/${schoolId}`),
-    getStateMatrix: () => fetchApi<MatrixNode[]>("/schools/stats/matrix"),
+  getStateMatrix: () => fetchApi<MatrixNode[]>("/schools/stats/matrix"),
 };
