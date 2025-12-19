@@ -1,14 +1,17 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, RefreshCw, School, Settings, GraduationCap, LogOut, User, Shield, AlertCircle, Users } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, School, GraduationCap, LogOut, AlertCircle, Users } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { useAuth } from '../../context/AuthContext';
+// [ADD THIS] Import Avatar components
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 
 export function AppSidebar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const role = user?.role || 'user';
+  console.log(user);
 
   const handleSignOut = async () => {
     await signOut();
@@ -55,18 +58,22 @@ export function AppSidebar() {
         <div className="p-4 border-t border-sidebar-border">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full justify-start gap-2">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  {user?.email?.[0].toUpperCase()}
-                </div>
+              <Button variant="ghost" className="w-full justify-start gap-2 h-auto py-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={`${user?.picture}`} alt={user?.name} />
+                  <AvatarFallback className="bg-primary/10">
+                    {user?.name?.[0].toUpperCase() || user?.email?.[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                
                 <div className="text-left overflow-hidden">
                   <p className="text-sm font-medium truncate">{user?.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{role}</p>
+                  <p className="text-xs text-muted-foreground truncate capitalize">{role}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" /> Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>

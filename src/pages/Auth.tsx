@@ -1,9 +1,9 @@
+// src/pages/Auth.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GraduationCap, AlertCircle, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "../hooks/use-toast";
-import { Button } from "../components/ui/button";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -15,19 +15,32 @@ import {
 } from "../components/ui/alert-dialog";
 
 export default function Auth() {
-  const { signInWithGoogle, isLoading, user, authError, setAuthError } = useAuth();
+  const { isLoading, user, authError, setAuthError, renderGoogleButton } = useAuth();
   const navigate = useNavigate();
   const [isWaitingList, setIsWaitingList] = useState(false);
 
+  // Render the official Google Button when the container is ready
   useEffect(() => {
-    if (user) navigate("/", { replace: true });
-  }, [user, navigate]);
+    if (!isLoading && !user) {
+      const timer = setTimeout(() => {
+        renderGoogleButton("google-button-container");
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, user, renderGoogleButton]);
 
-  // [NEW] Listen for authError changes
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && !isLoading) {
+      const target = user.role === 'admin' ? "/dashboard" : "/my-schools";
+      navigate(target, { replace: true });
+    }
+  }, [user, isLoading, navigate]);
+
   useEffect(() => {
     if (authError) {
       const msg = authError.toLowerCase();
-      if (msg.includes("sujal") || msg.includes("waiting list")) {
+      if (msg.includes("waiting") || msg.includes("sujal")) {
         setIsWaitingList(true);
       } else {
         toast({
@@ -44,6 +57,14 @@ export default function Auth() {
     setAuthError(null);
   };
 
+  if (isLoading && !user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -56,21 +77,19 @@ export default function Auth() {
         </div>
 
         <div className="rounded-xl border p-8 shadow-sm">
-          <div className="space-y-6">
+          <div className="space-y-6 flex flex-col items-center">
             {authError && !isWaitingList && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4 flex gap-3 animate-in fade-in zoom-in duration-200">
+              <div className="w-full rounded-lg bg-destructive/10 border border-destructive/20 p-4 flex gap-3">
                 <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                 <p className="text-sm text-destructive">{authError}</p>
               </div>
             )}
 
-            <Button onClick={signInWithGoogle} disabled={isLoading} className="w-full h-12 gap-3" size="lg">
-              {isLoading ? "Signing in..." : "Sign in with Google"}
-            </Button>
+            {/* Official Google Button Container */}
+            <div id="google-button-container" className="w-full flex justify-center min-h-[44px]" />
           </div>
         </div>
 
-        {/* [NEW] Professional Waiting List Modal */}
         <AlertDialog open={isWaitingList} onOpenChange={setIsWaitingList}>
           <AlertDialogContent>
             <AlertDialogHeader className="flex flex-col items-center">

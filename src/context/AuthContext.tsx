@@ -9,6 +9,7 @@ declare global {
         id: {
           initialize: (config: any) => void;
           prompt: (callback: (notification: any) => void) => void;
+          renderButton: (parent: HTMLElement, options: any) => void;
         };
       };
     };
@@ -29,7 +30,7 @@ interface AuthContextType {
   isLoading: boolean;
   authError: string | null;
   setAuthError: (err: string | null) => void;
-  signInWithGoogle: () => void;
+  renderGoogleButton: (containerId: string) => void;
   signOut: () => void;
 }
 
@@ -38,8 +39,8 @@ const AuthContext = createContext<AuthContextType>({
   role: undefined,
   isLoading: true,
   authError: null,
-  setAuthError: () => {},
-  signInWithGoogle: () => { },
+  setAuthError: () => { },
+  renderGoogleButton: () => { },
   signOut: () => { },
 });
 
@@ -50,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-  // 1. Initialize Google Identity Services ONCE on mount
+  // 1. Initialize Google Identity Services
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
@@ -60,13 +61,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleResponse,
-          auto_select: false,
+          auto_select: true, // Automatically logs in returning users
           itp_support: true,
+          use_fedcm_for_prompt: true, // [FIX] Enables FedCM to avoid NetworkErrors
+        });
+
+        // Optional: Trigger One Tap prompt on load
+        window.google.accounts.id.prompt((notification) => {
+          console.log("Google prompt notification:", notification);
         });
       }
     };
     document.head.appendChild(script);
-    return () => { document.head.removeChild(script); };
+    return () => {
+      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (existingScript) document.head.removeChild(existingScript);
+    };
   }, []);
 
   // 2. Check session on mount
@@ -111,18 +121,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = () => {
-    if (!window.google) {
-      setAuthError("Google Sign-In is still loading. Please wait.");
-      return;
+  // [NEW] Helper to render the personalized "Continue as..." button
+  const renderGoogleButton = (containerId: string) => {
+    if (window.google) {
+      window.google.accounts.id.renderButton(
+        document.getElementById(containerId)!,
+        {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          text: "continue_with", // Shows user name/picture if known
+          shape: "rectangular",
+          width: "350",
+          use_fedcm_for_button: true
+        }
+      );
     }
-    // Only prompt, don't re-initialize
-    window.google.accounts.id.prompt((notification: any) => {
-      if (notification.isNotDisplayed()) {
-        console.warn("Prompt not displayed:", notification.getNotDisplayedReason());
-        // Fallback: If prompt is blocked, try calling the popup explicitly or show manual login
-      }
-    });
   };
 
   const signOut = async () => {
@@ -135,7 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role: user?.role, isLoading, authError, setAuthError, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, role: user?.role, isLoading, authError, setAuthError, renderGoogleButton, signOut }}>
       {children}
     </AuthContext.Provider>
   );
