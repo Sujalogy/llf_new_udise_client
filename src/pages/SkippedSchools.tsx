@@ -18,7 +18,7 @@ export default function SkippedSchools() {
     // Filters
     const [years, setYears] = useState<Year[]>([]);
     const [states, setStates] = useState<State[]>([]);
-    
+
     const [selectedYear, setSelectedYear] = useState<string>('');
     const [selectedState, setSelectedState] = useState<string>('');
 
@@ -62,6 +62,22 @@ export default function SkippedSchools() {
             </header>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {/* ADDED: Academic Year Selector */}
+                <div className="space-y-2">
+                    <Label>Academic Year</Label>
+                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                        <SelectTrigger><SelectValue placeholder="Select Year" /></SelectTrigger>
+                        <SelectContent>
+                            {years.map(y => (
+                                <SelectItem key={y.yearId} value={String(y.yearId)}>
+                                    {y.yearDesc}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {/* Existing State Selector */}
                 <div className="space-y-2">
                     <Label>Filter by State</Label>
                     <Select value={selectedState} onValueChange={setSelectedState}>
@@ -82,10 +98,10 @@ export default function SkippedSchools() {
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => handleDownload('json')}>
-                            <Download className="h-4 w-4 mr-2"/> JSON
+                            <Download className="h-4 w-4 mr-2" /> JSON
                         </Button>
                         <Button variant="default" size="sm" onClick={() => handleDownload('csv')}>
-                            <Download className="h-4 w-4 mr-2"/> CSV
+                            <Download className="h-4 w-4 mr-2" /> CSV
                         </Button>
                     </div>
                 </CardHeader>
@@ -102,7 +118,7 @@ export default function SkippedSchools() {
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan={4} className="p-8 text-center"><Loader2 className="animate-spin inline mr-2"/>Loading data...</td></tr>
+                                    <tr><td colSpan={4} className="p-8 text-center"><Loader2 className="animate-spin inline mr-2" />Loading data...</td></tr>
                                 ) : summary.length === 0 ? (
                                     <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No skipped records found for selected filters.</td></tr>
                                 ) : (

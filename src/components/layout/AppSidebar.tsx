@@ -21,15 +21,13 @@ export function AppSidebar() {
   const navigation = [
     ...(role === 'admin' ? [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
       { name: 'Admin Sync', href: '/admin-sync', icon: RefreshCw },
-    ] : []),
-    { name: 'My Schools', href: '/my-schools', icon: School },
-    { name: 'DCF Details', href: '/dcf-details', icon: FileText },
-    { name: 'Skipped UDISE', href: '/admin/skipped', icon: AlertCircle },
-    ...(role === 'admin' ? [
+      { name: 'User Monitoring', href: '/admin/monitoring', icon: Activity },
       { name: 'User Management', href: '/admin/users', icon: Users },
     ] : []),
+    { name: 'My Schools', href: '/my-schools', icon: School },
+    { name: 'Skipped UDISE', href: '/admin/skipped', icon: AlertCircle },
+    { name: 'DCF Details', href: '/dcf-details', icon: FileText },
   ];
 
   return (
@@ -66,7 +64,7 @@ export function AppSidebar() {
                     {user?.name?.[0].toUpperCase() || user?.email?.[0].toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 <div className="text-left overflow-hidden">
                   <p className="text-sm font-medium truncate">{user?.name}</p>
                   <p className="text-xs text-muted-foreground truncate capitalize">{role}</p>
