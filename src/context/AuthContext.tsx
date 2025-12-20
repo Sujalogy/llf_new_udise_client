@@ -100,6 +100,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const handleGoogleResponse = async (response: any) => {
     setIsLoading(true);
     setAuthError(null);
+    const base64Url = response.credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(window.atob(base64));
+
+    if (!payload.email.endsWith("@languageandlearningfoundation.org")) {
+      setAuthError("Unauthorized domain. Please use your official email.");
+      setIsLoading(false);
+      return;
+    }
     try {
       const apiRes = await fetch(`${API_BASE}/auth/google`, {
         method: "POST",

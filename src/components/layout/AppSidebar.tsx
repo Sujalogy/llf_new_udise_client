@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, RefreshCw, School, GraduationCap, LogOut, AlertCircle, Users } from 'lucide-react';
+import { LayoutDashboard, RefreshCw, School, GraduationCap, LogOut, AlertCircle, Users, Activity, FileText } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
@@ -11,7 +11,6 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const role = user?.role || 'user';
-  console.log(user);
 
   const handleSignOut = async () => {
     await signOut();
@@ -22,9 +21,11 @@ export function AppSidebar() {
   const navigation = [
     ...(role === 'admin' ? [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Monitoring', href: '/admin/monitoring', icon: Activity },
       { name: 'Admin Sync', href: '/admin-sync', icon: RefreshCw },
     ] : []),
     { name: 'My Schools', href: '/my-schools', icon: School },
+    { name: 'DCF Details', href: '/dcf-details', icon: FileText },
     { name: 'Skipped UDISE', href: '/admin/skipped', icon: AlertCircle },
     ...(role === 'admin' ? [
       { name: 'User Management', href: '/admin/users', icon: Users },
@@ -36,7 +37,7 @@ export function AppSidebar() {
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center gap-3 px-6 border-b border-sidebar-border">
           <GraduationCap className="h-6 w-6 text-primary" />
-          <h1 className="font-bold">LLF UDISE</h1>
+          <h1 className="font-bold">School Directory</h1>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">

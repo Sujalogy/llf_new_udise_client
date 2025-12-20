@@ -16,7 +16,7 @@ import type {
   MatrixNode, // Ensure this is exported from types/school.ts
 } from "../types/school";
 
-export const API_BASE = import.meta.env.VITE_API_BASE_URL;
+export const API_BASE = (import.meta as any).env.VITE_API_BASE_URL;
 
 async function fetchApi<T>(
   endpoint: string,
@@ -29,12 +29,11 @@ async function fetchApi<T>(
     credentials: "include",
     ...options,
   });
-
   if (!response.ok) {
     throw new Error(`API Error: ${response.status} ${response.statusText}`);
   }
-
-  return response.json();
+  const data = await response.json();
+  return data;
 }
 
 export const api = {
@@ -64,11 +63,22 @@ export const api = {
     fetchApi<{ catId: string; category: string }[]>("/categories"),
   getManagements: () => Promise.resolve([]),
   getAdminUsers: () => fetchApi<any[]>("/admin/users"),
-  updateUserStatus: (userId: number, status: string) =>
-    fetchApi("/admin/users/status", {
-      method: "POST",
-      body: JSON.stringify({ userId, status }),
+  updateUser: (userId: number, data: any) =>
+    fetchApi(`/admin/users/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
     }),
+  getMonitoringStats: () =>
+    fetchApi<{
+      summary: {
+        total_users: number;
+        active_today: number;
+        total_downloads: number;
+      };
+      trends: { date: string; count: number }[];
+      topUsers: any[];
+      recentLogs: any[];
+    }>("/admin/monitoring"),
   getUdiseList: (
     stcode?: string,
     dtcode?: string,

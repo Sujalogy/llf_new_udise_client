@@ -2,103 +2,56 @@ import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ProtectedRoute, RoleBasedRedirect } from "./components/auth/ProtectedRoute";
-import { AppLayout } from "./components/layout/AppLayout";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import AdminSync from "./pages/AdminSync";
-import MySchools from "./pages/MySchools";
-import SchoolDetail from "./pages/SchoolDetail";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { SyncProvider } from "./context/SyncContext";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AppLayout } from "./components/layout/AppLayout";
+
+// Page Imports
+import Dashboard from "./pages/Dashboard";
+import Auth from "./pages/Auth";
+import MySchools from "./pages/MySchools";
+import SchoolDetail from "./pages/SchoolDetail";
+import AdminSync from "./pages/AdminSync";
+import AdminUsers from "./pages/AdminUsers";
+import Monitoring from "./pages/Monitoring"; // [NEW]
+import DcfDetails from "./pages/DcfDetails"; // [NEW]
 import SkippedSchools from "./pages/SkippedSchools";
-import AdminUsers from "./pages/AdminUsers"; // [NEW] Import the management page
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <SyncProvider>
+    <AuthProvider>
+      <SyncProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
             <Routes>
-              {/* Public route */}
               <Route path="/auth" element={<Auth />} />
-
-              {/* Root redirect based on role */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <RoleBasedRedirect />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Protected routes with layout */}
-              <Route
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              >
-                {/* Admin-only routes */}
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <Dashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin-sync"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <AdminSync />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <Settings />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* [NEW] User Management Route */}
-                <Route
-                  path="/admin/users"
-                  element={
-                    <ProtectedRoute requiredRole="admin">
-                      <AdminUsers />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route path="admin/skipped" element={<SkippedSchools />} />
-
-                {/* Routes for all authenticated users */}
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/my-schools" element={<MySchools />} />
                 <Route path="/school/:schoolId" element={<SchoolDetail />} />
-              </Route>
+                <Route path="/dcf-details" element={<DcfDetails />} /> {/* [NEW] */}
 
-              {/* Catch-all */}
+                {/* Admin Specific Routes */}
+                <Route path="/admin-sync" element={<AdminSync />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/admin/monitoring" element={<Monitoring />} /> {/* [NEW] */}
+                <Route path="/admin/skipped" element={<SkippedSchools />} />
+
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </SyncProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </SyncProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

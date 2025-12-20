@@ -76,7 +76,7 @@ export default function Auth() {
           <p className="text-muted-foreground mt-2">Sign in to access the dashboard</p>
         </div>
 
-        <div className="rounded-xl border p-8 shadow-sm">
+        <div className="rounded-xl border p-8 shadow-sm relative overflow-hidden">
           <div className="space-y-6 flex flex-col items-center">
             {authError && !isWaitingList && (
               <div className="w-full rounded-lg bg-destructive/10 border border-destructive/20 p-4 flex gap-3">
@@ -88,6 +88,8 @@ export default function Auth() {
             {/* Official Google Button Container */}
             <div id="google-button-container" className="w-full flex justify-center min-h-[44px]" />
           </div>
+
+          {/* Version badge inside the card footer area */}
         </div>
 
         <AlertDialog open={isWaitingList} onOpenChange={setIsWaitingList}>
@@ -108,8 +110,11 @@ export default function Auth() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        <p className="text-center text-sm text-muted-foreground mt-6">LLF Foundation</p>
+        <div className="mt-8 pt-4 border-t border-muted flex justify-center">
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded">
+            v 1.2.2
+          </span>
+        </div>
       </div>
     </div>
   );
