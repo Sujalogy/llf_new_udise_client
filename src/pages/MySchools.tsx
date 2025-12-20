@@ -1,23 +1,27 @@
 import { useEffect, useState, useRef } from 'react';
-import { Search, Loader2, FilterX } from 'lucide-react'; 
+import { Search, Loader2, FilterX, Ticket } from 'lucide-react'; 
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge'; 
 import { Button } from '../components/ui/button'; 
 import { ExportButton } from '../components/export/ExportButton';
 import { SchoolsTable } from '../components/schools/SchoolsTable';
 import { LocationFilters } from '../components/filters/LocationFilters';
+import { RaiseTicketDialog } from '../components/schools/RaiseTicketDialog'; 
 import { api } from '../lib/api';
 import type { Year, State, District, School } from '../types/school';
 import { useSync } from '../context/SyncContext';
 
 export default function MySchools() {
-  // Context for global selections (Year, State, District)
+  // Access global selections from SyncContext
   const { 
     selectedState, 
     selectedDistrict, 
     selectedYear, 
     setSelections 
   } = useSync();
+
+  // Dialog UI State
+  const [isTicketOpen, setIsTicketOpen] = useState(false);
 
   // Dropdown Data States
   const [years, setYears] = useState<Year[]>([]);
@@ -104,13 +108,9 @@ export default function MySchools() {
     searchQuery
   ]);
 
-  // 5. Main Data Fetch
+  // 5. Main Data Fetch with Infinite Scroll Support
   useEffect(() => {
     async function fetchSchools() {
-      // --- LOGIC TO PREVENT EMPTY FETCHING ---
-      // We check if any "active" filter is set. 
-      // We typically exclude 'selectedYear' from this check if it has a default value,
-      // ensuring we don't fetch until the user picks a location or types a search.
       const hasActiveFilters = 
         selectedState || 
         selectedDistrict || 
@@ -120,14 +120,12 @@ export default function MySchools() {
         selectedManagement !== 'all';
 
       if (!hasActiveFilters) {
-        // Clear table and stop if no specific filters are applied
         setSchools([]);
         setTotalCount(0);
         setIsLoading(false);
         setIsLoadingMore(false);
         return;
       }
-      // ---------------------------------------
 
       const isInitial = page === 1;
 
@@ -154,7 +152,7 @@ export default function MySchools() {
         let newSchools = result.data || [];
         let globalTotal = result.meta?.total || 0;
 
-        // --- STRICT YEAR FILTER FIX ---
+        // Strict Year Filter Logic
         if (selectedYear && years.length > 0) {
           const currentYearObj = years.find(y => String(y.yearId) === selectedYear);
           
@@ -162,19 +160,15 @@ export default function MySchools() {
             const match1 = String(currentYearObj.yearDesc).trim().toLowerCase();
             const match2 = currentYearObj.yearName ? String(currentYearObj.yearName).trim().toLowerCase() : '';
             
-            const originalCount = newSchools.length;
             newSchools = newSchools.filter(s => {
               if (!s.year_desc) return true; 
               const sYear = String(s.year_desc).trim().toLowerCase();
               return sYear === match1 || sYear === match2 || sYear.includes(match1);
             });
 
-            if (originalCount > 0 && newSchools.length === 0) {
-              globalTotal = 0;
-            }
+            if (newSchools.length === 0) globalTotal = 0;
           }
         }
-        // ------------------------------
 
         if (isInitial) {
           setSchools(newSchools);
@@ -208,7 +202,7 @@ export default function MySchools() {
     years
   ]);
 
-  // 6. Infinite Scroll Observer
+  // 6. Intersection Observer for Infinite Scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -223,11 +217,8 @@ export default function MySchools() {
   }, [hasMore, isLoading, isLoadingMore]);
 
 
-  // Handlers
-  const handleYearChange = (val: string) => {
-    setSelections(val, selectedState, selectedDistrict);
-  };
-  
+  // Filter Handlers
+  const handleYearChange = (val: string) => setSelections(val, selectedState, selectedDistrict);
   const handleStateChange = (val: string) => setSelections(selectedYear, val, '');
   const handleDistrictChange = (val: string) => setSelections(selectedYear, selectedState, val);
 
@@ -242,9 +233,23 @@ export default function MySchools() {
 
   return (
     <div className="animate-fade-in pb-10">
-      <header className="page-header">
-        <h1 className="page-title">My Schools</h1>
-        <p className="page-description">Browse, filter, and export school data.</p>
+      <header className="page-header flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div>
+          <h1 className="page-title text-3xl font-bold tracking-tight">My Schools</h1>
+          <p className="page-description text-muted-foreground">Browse, filter, and export school data.</p>
+        </div>
+        
+        {/* Actions Cluster */}
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="gap-2 shadow-sm border-primary/20 hover:bg-primary/5 transition-colors" 
+            onClick={() => setIsTicketOpen(true)}
+          >
+            <Ticket className="h-4 w-4 text-primary" />
+            Raise Data Ticket
+          </Button>
+        </div>
       </header>
 
       <div className="filter-section mb-6 space-y-4">
@@ -271,13 +276,13 @@ export default function MySchools() {
         />
         
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="relative w-full max-w-sm">
+            <div className="relative w-full max-sm:max-w-none max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by Name or UDISE Code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-background"
+                className="pl-9 bg-background h-11"
               />
             </div>
 
@@ -293,58 +298,76 @@ export default function MySchools() {
         </div>
       </div>
 
-      {/* --- STATS STRIP --- */}
-      <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 mb-4 flex flex-wrap gap-4 items-center justify-between text-sm shadow-sm">
+      {/* Stats Summary Bar */}
+      <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 mb-6 flex flex-wrap gap-4 items-center justify-between text-sm shadow-sm">
         <div className="flex flex-wrap items-center gap-4">
-            
-            {/* Total Count */}
             <div className="flex items-center gap-2">
                 <span className="font-semibold text-foreground">Total Schools Found:</span>
-                <Badge variant="default" className="text-sm px-2.5">{totalCount.toLocaleString()}</Badge>
+                <Badge variant="default" className="text-sm px-2.5 bg-primary/90">
+                  {totalCount.toLocaleString()}
+                </Badge>
             </div>
 
             <div className="h-4 w-px bg-border hidden sm:block"></div>
 
-            {/* Active Filters Badges */}
             <div className="flex flex-wrap gap-2 items-center">
                 {selectedSchoolType !== 'all' && (
-                    <Badge variant="secondary" className="border-border">
+                    <Badge variant="secondary" className="border-border font-normal">
                         Type: {selectedSchoolType}
                     </Badge>
                 )}
                 {selectedCategory !== 'all' && (
-                    <Badge variant="secondary" className="border-border">
+                    <Badge variant="secondary" className="border-border font-normal">
                         Cat: {selectedCategory}
                     </Badge>
                 )}
                 {selectedManagement !== 'all' && (
-                    <Badge variant="secondary" className="border-border">
+                    <Badge variant="secondary" className="border-border font-normal">
                         Mgmt: {selectedManagement}
                     </Badge>
                 )}
                 {searchQuery && (
-                     <Badge variant="secondary" className="border-border">
-                        Search: "{searchQuery}"
+                     <Badge variant="secondary" className="border-border font-normal italic">
+                        "{searchQuery}"
                     </Badge>
                 )}
             </div>
         </div>
 
-        {/* Clear Filters Action */}
         {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs text-muted-foreground hover:text-destructive">
-                <FilterX className="h-3.5 w-3.5 mr-1" />
-                Clear Filters
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearFilters} 
+              className="h-8 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+                <FilterX className="h-3.5 w-3.5 mr-1.5" />
+                Clear All Filters
             </Button>
         )}
       </div>
 
+      {/* Main Results Table */}
       <SchoolsTable schools={schools} isLoading={isLoading} />
 
-      <div ref={observerTarget} className="h-20 flex items-center justify-center">
-        {isLoadingMore && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
-        {!hasMore && schools.length > 0 && <span className="text-sm text-muted-foreground">End of list</span>}
+      {/* Loading States for Infinite Scroll */}
+      <div ref={observerTarget} className="h-24 flex items-center justify-center">
+        {isLoadingMore && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Fetching more records...</span>
+          </div>
+        )}
+        {!hasMore && schools.length > 0 && (
+          <div className="text-center space-y-1">
+            <p className="text-sm font-medium text-muted-foreground">End of List</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">v 1.2.2 Intelligence</p>
+          </div>
+        )}
       </div>
+
+      {/* Ticket Dialog Component */}
+      <RaiseTicketDialog open={isTicketOpen} onOpenChange={setIsTicketOpen} />
     </div>
   );
 }

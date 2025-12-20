@@ -29,10 +29,23 @@ async function fetchApi<T>(
     credentials: "include",
     ...options,
   });
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`);
-  }
+
+  // Always parse the JSON body to capture potential error messages
   const data = await response.json();
+
+  if (!response.ok) {
+    // Create a custom error object
+    const error: any = new Error(
+      data.message || `API Error: ${response.status}`
+    );
+
+    // Attach the status and the full JSON response (data) for the UI to use
+    error.status = response.status;
+    error.details = data;
+
+    throw error;
+  }
+
   return data;
 }
 
@@ -264,4 +277,13 @@ export const api = {
       stats: any; // Add specific type if needed
     }>(`/schools/local-details/${schoolId}`),
   getStateMatrix: () => fetchApi<MatrixNode[]>("/schools/stats/matrix"),
+  getUnsyncedLocations: () => fetchApi<any[]>("/admin/locations/unsynced"),
+  raiseTicket: (data: any) =>
+    fetchApi("/admin/requests", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getPendingRequests: () => fetchApi<any[]>("/admin/requests/pending"),
+  getUserNotifications: () =>
+    fetchApi<any[]>("/admin/requests/user-notifications"),
 };

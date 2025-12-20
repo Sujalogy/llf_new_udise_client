@@ -22,7 +22,6 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       const data = await api.getAdminUsers();
-      console.log(data)
       setUsers(data);
     } catch (err) {
       toast({ title: "Error", description: "Failed to load users", variant: "destructive" });
@@ -43,33 +42,37 @@ export default function AdminUsers() {
     fetchMasterData();
   }, []);
 
-  const handleStateChange = async (stateCode: string) => {
-    const selectedState = masterStates.find(s => s.stcode11 === stateCode);
+const handleStateChange = async (stateCode: string) => {
+  // CRITICAL: Stop execution if the stateCode is empty to prevent 404 errors
+  if (!stateCode || stateCode.trim() === "") {
+    setMasterDistricts([]);
+    return;
+  }
 
-    setEditingUser({
-      ...editingUser,
-      assigned_states: [stateCode],
-      assigned_state_names: [selectedState?.stname || ""], 
-      assigned_districts: [],
-      assigned_district_names: []
-    });
+  // Find and update the local editing state
+  const selectedState = masterStates.find(s => s.stcode11 === stateCode);
+  setEditingUser({ 
+    ...editingUser, 
+    assigned_states: [stateCode], 
+    assigned_state_names: [selectedState?.stname || ""],
+    assigned_districts: [], 
+    assigned_district_names: [] 
+  });
 
-    if (!stateCode) return;
-
-    try {
-      const districts = await api.getMasterDistricts(stateCode, "2024-25");
-      setMasterDistricts(districts);
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to load districts", variant: "destructive" });
-    }
-  };
-
+  try {
+    // stateCode is now guaranteed to be a valid ID (e.g., '22' for CHHATTISGARH)
+    const districts = await api.getMasterDistricts(stateCode, "2024-25");
+    setMasterDistricts(districts);
+  } catch (err) {
+    console.error("Failed to fetch districts", err);
+  }
+};
   const handleDistrictChange = (districtCode: string) => {
     const selectedDistrict = masterDistricts.find(d => d.dtcode11 === districtCode);
     setEditingUser({
       ...editingUser,
       assigned_districts: [districtCode],
-      assigned_district_names: [selectedDistrict?.dtname || ""] 
+      assigned_district_names: [selectedDistrict?.dtname || ""]
     });
   };
 
@@ -175,7 +178,7 @@ export default function AdminUsers() {
                 onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Role</Label>
@@ -189,7 +192,7 @@ export default function AdminUsers() {
               </div>
               <div className="space-y-2">
                 <Label>Account Status</Label>
-                <Select value={editingUser?.status} onValueChange={(val) => setEditingUser({...editingUser, status: val})}>
+                <Select value={editingUser?.status} onValueChange={(val) => setEditingUser({ ...editingUser, status: val })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Active</SelectItem>
