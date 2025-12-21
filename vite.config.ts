@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    allowedHosts: ["school-directory.llf.org.in"]
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(
     Boolean
@@ -16,6 +17,5 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-  },
-  allowedHosts: ["school-directory.llf.org.in"],
+  }
 }));
