@@ -67,7 +67,7 @@ export default function Dashboard() {
       </div>
 
       {/* 3. PERFORMANCE DRILL-DOWN MATRIX */}
-      <Card className="border border-slate-200 shadow-xl rounded-3xl overflow-hidden bg-white">
+      <Card className="border border-slate-200 rounded-3xl overflow-hidden bg-white">
         <CardHeader className="px-8 py-8 border-b bg-slate-50/80">
           <div className="flex justify-between items-center">
             <div className="space-y-1">

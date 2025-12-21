@@ -161,7 +161,16 @@ export const api = {
     fetchApi<School[]>(
       `/schools/search?searchType=${searchType}&searchParam=${searchParam}`
     ),
-
+  askAI: (prompt: string) => 
+    fetchApi<{
+      answer: string;      // The AI's natural language summary
+      data: any[];         // The raw database rows
+      format: 'text' | 'table' | 'chart'; 
+      query: string;       // The SQL query executed
+    }>("/ai/ask", {
+      method: "POST",
+      body: JSON.stringify({ prompt }),
+    }),
   getSchoolProfile: (schoolId: string) =>
     fetchApi<SchoolProfile>(`/schools/profile/${schoolId}`),
   getSchoolFacility: (schoolId: string) =>

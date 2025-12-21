@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import type { Year, State } from '../types/school';
+import { useAuth } from '../context/AuthContext';
 
 interface SkippedSummary {
     state: string;
@@ -16,6 +17,7 @@ interface SkippedSummary {
 
 export default function SkippedSchools() {
     // Filters
+    const { role } = useAuth();
     const [years, setYears] = useState<Year[]>([]);
     const [states, setStates] = useState<State[]>([]);
 
@@ -97,9 +99,10 @@ export default function SkippedSchools() {
                         <CardDescription>Schools grouped by location and academic year.</CardDescription>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleDownload('json')}>
+                        {role === 'admin' && <Button variant="outline" size="sm" onClick={() => handleDownload('json')}>
                             <Download className="h-4 w-4 mr-2" /> JSON
                         </Button>
+                        }
                         <Button variant="default" size="sm" onClick={() => handleDownload('csv')}>
                             <Download className="h-4 w-4 mr-2" /> CSV
                         </Button>
