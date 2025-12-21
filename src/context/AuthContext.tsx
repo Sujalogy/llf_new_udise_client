@@ -112,8 +112,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const apiRes = await fetch(`${API_BASE}/auth/google`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: response.credential }),
       });
 
