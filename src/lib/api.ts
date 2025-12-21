@@ -26,7 +26,6 @@ async function fetchApi<T>(
     headers: {
       "Content-Type": "application/json",
     },
-     mode: "cors",
     credentials: "include",
     ...options,
   });

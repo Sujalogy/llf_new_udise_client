@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch(`${API_BASE}/auth/me`, {  mode: "cors", credentials: "include" });
+        const response = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
         if (response.ok) {
           const data = await response.json();
           setUser(data.user);
@@ -112,7 +112,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const apiRes = await fetch(`${API_BASE}/auth/google`, {
         method: "POST",
-        mode: "cors",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ credential: response.credential }),
@@ -151,7 +150,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
-      await fetch(`${API_BASE}/auth/logout`, { method: "POST", mode: "cors", credentials: "include" });
+      await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" });
     } finally {
       setUser(null);
       setAuthError(null);
