@@ -26,7 +26,7 @@ async function fetchApi<T>(
     headers: {
       "Content-Type": "application/json",
     },
-    credentials: "include",
+    credentials: 'include',
     ...options,
   });
 
@@ -142,7 +142,7 @@ export const api = {
       `${API_BASE}/schools/skipped/export?${params.toString()}`,
       {
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        credentials: 'include',
       }
     );
     if (!response.ok) throw new Error("Export failed");
@@ -263,7 +263,7 @@ export const api = {
       `${API_BASE}/schools/export/list?${params.toString()}`,
       {
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        credentials: 'include',
       }
     );
     if (!response.ok) throw new Error("Export failed");

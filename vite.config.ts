@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
               target: "https://api.school-directory.llf.org.in", // Your backend URL
               changeOrigin: true,
               secure: false,
-              credentials: "include",
+              credentials: 'include',
             },
           }
         : undefined,
