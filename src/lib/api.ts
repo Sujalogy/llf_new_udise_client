@@ -1,3 +1,4 @@
+import axios, { AxiosError } from "axios";
 import type {
   Year,
   State,
@@ -7,91 +8,97 @@ import type {
   SchoolFacility,
   SocialData,
   TeacherStats,
-  ReportCard,
-  DashboardStats,
-  StateWiseStats,
-  SyncStatus,
   DashboardData,
   SkippedSchool,
-  MatrixNode, // Ensure this is exported from types/school.ts
+  MatrixNode,
+  SyncResponse,
 } from "../types/school";
 
 export const API_BASE = (import.meta as any).env.VITE_API_BASE_URL;
 
-async function fetchApi<T>(
-  endpoint: string,
-  options?: RequestInit
-): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-    credentials: 'include',
-    ...options,
-  });
+// 1. Create an Axios Instance
+const apiClient = axios.create({
+  baseURL: API_BASE,
+  withCredentials: true, // 👈 Crucial for sending/receiving cookies
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-  // Always parse the JSON body to capture potential error messages
-  const data = await response.json();
-
-  if (!response.ok) {
-    // Create a custom error object
-    const error: any = new Error(
-      data.message || `API Error: ${response.status}`
+// 2. Generic Helper for requests
+async function request<T>(config: any): Promise<T> {
+  try {
+    const response = await apiClient(config);
+    return response.data;
+  } catch (error: any) {
+    const axiosError = error as AxiosError;
+    
+    // Extract error details to match your previous logic
+    const customError: any = new Error(
+      (axiosError.response?.data as any)?.message || `API Error: ${axiosError.response?.status}`
     );
+    
+    customError.status = axiosError.response?.status;
+    customError.details = axiosError.response?.data;
 
-    // Attach the status and the full JSON response (data) for the UI to use
-    error.status = response.status;
-    error.details = data;
-
-    throw error;
+    throw customError;
   }
-
-  return data;
 }
 
 export const api = {
-  // ... existing metadata & list APIs ...
-  getYears: () => fetchApi<Year[]>("/years"),
+  // --- Metadata & Filters ---
+  getMe: () => apiClient.get('/auth/me').then(res => res.data),
+  getYears: () => request<Year[]>({ url: "/years", method: "GET" }),
+  
   getFilters: () =>
-    fetchApi<{
+    request<{
       schoolTypes: string[];
       categories: string[];
       managements: string[];
-    }>("/schools/filters"),
+    }>({ url: "/schools/filters", method: "GET" }),
+
   getMasterStates: (yearId: string) =>
-    fetchApi<State[]>("/locations/master/states"),
+    request<State[]>({ url: "/locations/master/states", method: "GET" }),
+
   getMasterDistricts: (stateCode: string, yearId: string) =>
-    fetchApi<District[]>(`/locations/master/districts/${stateCode}`),
+    request<District[]>({ url: `/locations/master/districts/${stateCode}`, method: "GET" }),
+
   getSyncedStates: (yearId?: string) =>
-    fetchApi<State[]>(
-      `/locations/synced/states${yearId ? `?yearId=${yearId}` : ""}`
-    ),
-  getSyncedDistricts: (stateCode: string, yearId?: string) =>
-    fetchApi<District[]>(
-      `/locations/synced/districts/${stateCode}${
-        yearId ? `?yearId=${yearId}` : ""
-      }`
-    ),
-  getCategories: () =>
-    fetchApi<{ catId: string; category: string }[]>("/categories"),
-  getManagements: () => Promise.resolve([]),
-  getAdminUsers: () => fetchApi<any[]>("/admin/users"),
-  updateUser: (userId: number, data: any) =>
-    fetchApi(`/admin/users/${userId}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
+    request<State[]>({ 
+        url: "/locations/synced/states", 
+        method: "GET", 
+        params: { yearId } 
     }),
+
+  getSyncedDistricts: (stateCode: string, yearId?: string) =>
+    request<District[]>({ 
+        url: `/locations/synced/districts/${stateCode}`, 
+        method: "GET", 
+        params: { yearId } 
+    }),
+
+  getCategories: () =>
+    request<{ catId: string; category: string }[]>({ url: "/categories", method: "GET" }),
+
+  // --- Admin User Management ---
+  getAdminUsers: () => request<any[]>({ url: "/admin/users", method: "GET" }),
+  
+  updateUser: (userId: number, data: any) =>
+    request({ 
+        url: `/admin/users/${userId}`, 
+        method: "PUT", 
+        data 
+    }),
+
   getMonitoringStats: () =>
-    fetchApi<{
-      summary: {
-        total_users: number;
-        active_today: number;
-        total_downloads: number;
-      };
+    request<{
+      summary: { total_users: number; active_today: number; total_downloads: number };
       trends: { date: string; count: number }[];
       topUsers: any[];
       recentLogs: any[];
-    }>("/admin/monitoring"),
+    }>({ url: "/admin/monitoring", method: "GET" }),
+
+  // --- Schools List & Search ---
   getUdiseList: (
     stcode?: string,
     dtcode?: string,
@@ -102,197 +109,122 @@ export const api = {
     yearId?: string,
     search?: string,
     category?: string
-  ) => {
-    const params = new URLSearchParams();
-    if (stcode) params.append("stcode11", stcode);
-    if (dtcode) params.append("dtcode11", dtcode);
-    if (schoolType && schoolType !== "all")
-      params.append("schoolType", schoolType);
-    if (category && category !== "all") params.append("category", category);
-    if (management && management !== "all")
-      params.append("management", management);
-    if (yearId) params.append("yearId", yearId);
-    if (search) params.append("search", search);
-    params.append("page", page.toString());
-    params.append("limit", limit.toString());
-
-    return fetchApi<{ data: School[]; meta: { total: number } }>(
-      `/schools/list?${params.toString()}`
-    );
-  },
-  getSkippedSummary: (yearId?: string, stcode?: string) => {
-    const params = new URLSearchParams();
-    if (yearId) params.append("yearId", yearId);
-    if (stcode) params.append("stcode11", stcode);
-    return fetchApi<
-      { state: string; district: string; count: number; year: string }[]
-    >(`/schools/skipped/summary?${params.toString()}`);
-  },
-  exportSkippedList: async (
-    format: "csv" | "json",
-    filters: { yearId?: string; stcode?: string; dtcode?: string }
-  ) => {
-    const params = new URLSearchParams();
-    params.append("format", format);
-    if (filters.yearId) params.append("yearId", filters.yearId);
-    if (filters.stcode) params.append("stcode11", filters.stcode);
-    if (filters.dtcode) params.append("dtcode11", filters.dtcode);
-
-    const response = await fetch(
-      `${API_BASE}/schools/skipped/export?${params.toString()}`,
-      {
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-      }
-    );
-    if (!response.ok) throw new Error("Export failed");
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `skipped_schools_${new Date().toISOString()}.${format}`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  },
-  searchSchools: (searchType: number, searchParam: string) =>
-    fetchApi<School[]>(
-      `/schools/search?searchType=${searchType}&searchParam=${searchParam}`
-    ),
-  askAI: (prompt: string) => 
-    fetchApi<{
-      answer: string;      // The AI's natural language summary
-      data: any[];         // The raw database rows
-      format: 'text' | 'table' | 'chart'; 
-      query: string;       // The SQL query executed
-    }>("/ai/ask", {
-      method: "POST",
-      body: JSON.stringify({ prompt }),
-    }),
-  getSchoolProfile: (schoolId: string) =>
-    fetchApi<SchoolProfile>(`/schools/profile/${schoolId}`),
-  getSchoolFacility: (schoolId: string) =>
-    fetchApi<SchoolFacility>(`/schools/facility/${schoolId}`),
-  getSocialData: (schoolId: string, flag: number) =>
-    fetchApi<SocialData>(`/schools/social-data/${schoolId}?flag=${flag}`),
-  getEnrolmentTeacher: (schoolId: string) =>
-    fetchApi<TeacherStats>(`/schools/stats/${schoolId}`),
-  getReportCard: (schoolId: string) =>
-    Promise.reject("Endpoint not implemented"),
-  getSkippedSchools: (page = 1, limit = 50) =>
-    fetchApi<{ data: SkippedSchool[]; meta: { total: number } }>(
-      `/schools/skipped?page=${page}&limit=${limit}`
-    ),
-  // --- ADMIN SYNC ACTIONS ---
-
-  // Step 1: Sync Directory (Master List)
-  syncDirectory: (yearId: string, stcode11: string, dtcode11: string) =>
-    fetchApi<{ success: boolean; count: number; message: string }>(
-      "/schools/sync-directory",
-      {
-        method: "POST",
-        body: JSON.stringify({ yearId, stcode11, dtcode11 }),
-      }
-    ),
-
-  // Step 2: Sync GIS Data (Coordinates)
-  syncSchools: (stcode11: string, dtcode11: string) =>
-    fetchApi<{ success: boolean; count: number; message: string }>(
-      "/schools/sync",
-      {
-        method: "POST",
-        body: JSON.stringify({ stcode11, dtcode11 }),
-      }
-    ),
-
-  // Step 3: Sync Full Details (Profile, Facilities, Stats - NEW)
-  syncSchoolDetails: (
-    yearId: string,
-    stcode: string,
-    dtcode: string,
-    udiseList?: string[],
-    config?: { batchSize?: number; strictMode?: boolean } // [NEW]
-  ) =>
-    fetchApi<any>("/schools/sync/details", {
-      method: "POST",
-      body: JSON.stringify({
-        yearId,
+  ) => request<{ data: School[]; meta: { total: number } }>({
+    url: "/schools/list",
+    method: "GET",
+    params: {
         stcode11: stcode,
         dtcode11: dtcode,
-        udiseList,
-        ...config, // Spread config (batchSize, strictMode)
-      }),
+        schoolType: schoolType !== "all" ? schoolType : undefined,
+        category: category !== "all" ? category : undefined,
+        management: management !== "all" ? management : undefined,
+        yearId,
+        search,
+        page,
+        limit
+    }
+  }),
+
+  searchSchools: (searchType: number, searchParam: string) =>
+    request<School[]>({ 
+        url: "/schools/search", 
+        method: "GET", 
+        params: { searchType, searchParam } 
     }),
 
-  getDashboardStats: () => fetchApi<DashboardData>("/schools/stats/dashboard"),
+  // --- AI ---
+  askAI: (prompt: string) => 
+    request<{
+      answer: string;
+      data: any[];
+      format: 'text' | 'table' | 'chart'; 
+      query: string;
+    }>({ url: "/ai/ask", method: "POST", data: { prompt } }),
 
-  // ... stats & export ...
-  getStats: () =>
-    Promise.resolve({
-      totalSchools: 0,
-      totalStudents: 0,
-      totalTeachers: 0,
-      syncedStates: 0,
-      syncedDistricts: 0,
+  // --- School Details ---
+  getSchoolProfile: (schoolId: string) =>
+    request<SchoolProfile>({ url: `/schools/profile/${schoolId}`, method: "GET" }),
+    
+  getSchoolFacility: (schoolId: string) =>
+    request<SchoolFacility>({ url: `/schools/facility/${schoolId}`, method: "GET" }),
+    
+  getSocialData: (schoolId: string, flag: number) =>
+    request<SocialData>({ url: `/schools/social-data/${schoolId}`, method: "GET", params: { flag } }),
+    
+  getEnrolmentTeacher: (schoolId: string) =>
+    request<TeacherStats>({ url: `/schools/stats/${schoolId}`, method: "GET" }),
+
+  getSkippedSchools: (page = 1, limit = 50) =>
+    request<{ data: SkippedSchool[]; meta: { total: number } }>({ 
+        url: "/schools/skipped", 
+        method: "GET", 
+        params: { page, limit } 
     }),
-  getStateWiseStats: () => Promise.resolve([]),
 
-  exportSchools: async (
-    filters: {
-      stcode?: string;
-      dtcode?: string;
-      yearId?: string;
-      category?: string;
-      management?: string;
-    },
-    format: "csv" | "json"
-  ) => {
-    const params = new URLSearchParams();
-    if (filters.stcode) params.append("stcode11", filters.stcode);
-    if (filters.dtcode) params.append("dtcode11", filters.dtcode);
-    if (filters.yearId) params.append("yearId", filters.yearId);
-    if (filters.category && filters.category !== "all")
-      params.append("category", filters.category);
-    if (filters.management && filters.management !== "all")
-      params.append("management", filters.management);
-    params.append("format", format);
+  // --- Admin Sync Actions ---
+ syncDirectory: (yearId: string, stcode11: string, dtcode11: string) =>
+  request<SyncResponse>({ // 👈 Ensure <SyncResponse> is here
+    url: "/schools/sync-directory",
+    method: "POST",
+    data: { yearId, stcode11, dtcode11 }
+  }),
 
-    const response = await fetch(
-      `${API_BASE}/schools/export/list?${params.toString()}`,
-      {
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-      }
-    );
-    if (!response.ok) throw new Error("Export failed");
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `schools_export.${format}`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+  syncSchools: (stcode11: string, dtcode11: string) =>
+    request({ 
+        url: "/schools/sync", 
+        method: "POST", 
+        data: { stcode11, dtcode11 } 
+    }),
+
+syncSchoolDetails: (
+  yearId: string,
+  stcode: string,
+  dtcode: string,
+  udiseList?: string[],
+  config?: { batchSize?: number; strictMode?: boolean }
+) => request<SyncResponse>({ // 👈 Ensure <SyncResponse> is here
+  url: "/schools/sync/details",
+  method: "POST",
+  data: { yearId, stcode11: stcode, dtcode11: dtcode, udiseList, ...config }
+}),
+
+  // --- Dashboard & Matrix ---
+  getDashboardStats: () => request<DashboardData>({ url: "/schools/stats/dashboard", method: "GET" }),
+  getStateMatrix: () => request<MatrixNode[]>({ url: "/schools/stats/matrix", method: "GET" }),
+
+  // --- Exports (Special Handling for Blobs) ---
+  exportSchools: async (filters: any, format: "csv" | "json") => {
+    const response = await apiClient.get("/schools/export/list", {
+      params: { ...filters, format },
+      responseType: 'blob' // 👈 Required for file downloads in Axios
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `schools_export.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   },
-  getLocalSchoolDetails: (schoolId: string) =>
-    fetchApi<{
-      profile: SchoolProfile;
-      facility: SchoolFacility;
-      social: SocialData;
-      teachers: TeacherStats;
-      stats: any; // Add specific type if needed
-    }>(`/schools/local-details/${schoolId}`),
-  getStateMatrix: () => fetchApi<MatrixNode[]>("/schools/stats/matrix"),
-  getUnsyncedLocations: () => fetchApi<any[]>("/admin/locations/unsynced"),
-  raiseTicket: (data: any) =>
-    fetchApi("/admin/requests", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-  getPendingRequests: () => fetchApi<any[]>("/admin/requests/pending"),
-  getUserNotifications: () =>
-    fetchApi<any[]>("/admin/requests/user-notifications"),
+
+  exportSkippedList: async (format: "csv" | "json", filters: any) => {
+    const response = await apiClient.get("/schools/skipped/export", {
+      params: { ...filters, format },
+      responseType: 'blob'
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `skipped_schools.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  // --- Tickets & Notifications ---
+  raiseTicket: (data: any) => request({ url: "/admin/requests", method: "POST", data }),
+  getPendingRequests: () => request<any[]>({ url: "/admin/requests/pending", method: "GET" }),
+  getUserNotifications: () => request<any[]>({ url: "/admin/requests/user-notifications", method: "GET" }),
 };

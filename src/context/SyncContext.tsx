@@ -1,23 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { api } from '../lib/api';
-import { SyncStatus } from '../types/school';
+import { SyncContextType, SyncStatus } from '../types/school';
 import { toast } from '../hooks/use-toast';
-
-interface SyncContextType {
-  selectedYear: string;
-  selectedState: string;
-  selectedDistrict: string;
-  setSelections: (year: string, state: string, district: string) => void;
-
-  directoryStatus: SyncStatus;
-  detailsStatus: SyncStatus;
-
-  runDirectorySync: () => Promise<void>;
-  runDetailsSync: () => Promise<void>;
-
-  isSyncing: boolean;
-  isStep1Complete: boolean;
-}
+import { SyncResponse } from '../types/school';
 
 const SyncContext = createContext<SyncContextType | undefined>(undefined);
 
@@ -40,58 +25,63 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 1. Directory Sync (Smart Incremental)
   const runDirectorySync = async () => {
-    if (!selectedYear || !selectedState || !selectedDistrict) return;
+    if (!selectedYear || !selectedState || !selectedDistrict) {
+      toast({ title: "Validation Error", description: "Please select Year, State, and District", variant: "destructive" });
+      return;
+    }
 
     setDirectoryStatus({ status: 'syncing', message: 'Checking for new schools...' });
+    
     try {
-      const result = await api.syncDirectory(selectedYear, selectedState, selectedDistrict);
+      // Explicitly type the result as SyncResponse
+      const result = await api.syncDirectory(selectedYear, selectedState, selectedDistrict) as SyncResponse;
+      
       if (result.success) {
-        // [UPDATE]: Use the dynamic message from backend (e.g. "Added 5 new schools")
         setDirectoryStatus({ status: 'success', message: result.message });
         toast({ title: 'Directory Sync', description: result.message });
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || "Failed to sync directory");
       }
-    } catch (error) {
-      setDirectoryStatus({ status: 'error', message: 'Failed to fetch directory.' });
-      toast({ title: 'Sync Failed', description: String(error), variant: 'destructive' });
+    } catch (error: any) {
+      const errorMessage = error.details?.message || error.message || 'Failed to fetch directory.';
+      setDirectoryStatus({ status: 'error', message: errorMessage });
+      toast({ title: 'Sync Failed', description: errorMessage, variant: 'destructive' });
     }
   };
 
-  // 2. Details Sync (Smart Incremental)
   const runDetailsSync = async () => {
+    if (!selectedYear || !selectedState || !selectedDistrict) return;
+
     setDetailsStatus({ status: 'syncing', message: 'Initializing...' });
 
     try {
-      // 1. Read Settings from LocalStorage (or use defaults)
       const storedBatch = localStorage.getItem('conf_batchSize');
       const storedStrict = localStorage.getItem('conf_strictMode');
-
       const batchSize = storedBatch ? parseInt(storedBatch, 10) : 5;
       const strictMode = storedStrict === 'true';
 
       setDetailsStatus({ status: 'syncing', message: `Syncing with batch size ${batchSize}...` });
 
-      // 2. Call API with Config
-      const result = await api.syncSchoolDetails(
+      // Explicitly type the result as SyncResponse
+      const result: SyncResponse = await api.syncSchoolDetails(
         selectedYear,
         selectedState,
         selectedDistrict,
-        undefined, // udiseList (undefined for bulk sync)
-        { batchSize, strictMode } // [NEW] Pass config
-      );
+        undefined,
+        { batchSize, strictMode }
+      ) as SyncResponse;
 
       if (result.success) {
         setDetailsStatus({ status: 'success', message: result.message });
         toast({ title: 'Deep Sync Complete', description: result.message });
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || "Detail sync failed");
       }
-    } catch (error) {
-      setDetailsStatus({ status: 'error', message: 'Detail Sync failed.' });
-      toast({ title: 'Sync Failed', description: String(error), variant: 'destructive' });
+    } catch (error: any) {
+      const errorMessage = error.details?.message || error.message || 'Detail Sync failed.';
+      setDetailsStatus({ status: 'error', message: errorMessage });
+      toast({ title: 'Sync Failed', description: errorMessage, variant: 'destructive' });
     }
   };
 

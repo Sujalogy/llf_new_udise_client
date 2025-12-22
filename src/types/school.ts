@@ -242,3 +242,22 @@ export interface MatrixNode {
   stats: MatrixStats;
   districts?: MatrixNode[];
 }
+
+export interface SyncResponse {
+  success: boolean;
+  message: string;
+  count?: number;
+}
+
+ export interface SyncContextType {
+  selectedYear: string;
+  selectedState: string;
+  selectedDistrict: string;
+  setSelections: (year: string, state: string, district: string) => void;
+  directoryStatus: SyncStatus;
+  detailsStatus: SyncStatus;
+  runDirectorySync: () => Promise<void>;
+  runDetailsSync: () => Promise<void>;
+  isSyncing: boolean;
+  isStep1Complete: boolean;
+}

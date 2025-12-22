@@ -9,7 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_ALLOWED_DOMAIN: string;
 }
 
-interface ImportMeta {
-  env: any;
+declare module "vite/client" {
+  interface ImportMetaEnv {
+    readonly VITE_ALLOWED_DOMAIN: string;
+  }
 }
-
