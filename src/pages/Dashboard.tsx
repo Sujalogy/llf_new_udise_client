@@ -151,14 +151,14 @@ export default function Dashboard() {
       </Card>
 
       {/* 4. STRATEGIC CEO SUMMARY */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
          <CEOInsightCard title="Infrastructure Stability" icon={Building2}>
             Gaps identified in <strong>Secondary Sections</strong>. Immediate attention required for Blocks with index scores below 50% to meet 2025-26 compliance.
          </CEOInsightCard>
          <CEOInsightCard title="Enrolment & Equity" icon={TrendingUp} color="text-emerald-600">
             <strong>Gender Parity Index (GPI)</strong> remains stable across urban blocks. Focus shifting to <strong>Out-of-School Children (OoSC)</strong> retention.
          </CEOInsightCard>
-      </div>
+      </div> */}
     </div>
   );
 }
