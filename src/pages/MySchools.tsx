@@ -288,6 +288,8 @@ export default function MySchools() {
 
             <ExportButton
               stcode11={selectedState}
+              stname={states.find(s => s.stcode11 === selectedState)?.stname || ''}
+              dtname={districts.find(d => d.dtcode11 === selectedDistrict)?.dtname || ''}
               dtcode11={selectedDistrict}
               yearId={selectedYear}
               schoolType={selectedSchoolType}

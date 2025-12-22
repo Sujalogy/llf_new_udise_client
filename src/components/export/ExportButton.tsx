@@ -16,6 +16,8 @@ import { useAuth } from '../../context/AuthContext';
 interface ExportButtonProps {
   stcode11?: string;
   dtcode11?: string;
+  stname?: string;
+  dtname?: string;
   yearId?: string;
   schoolType?: string; // [UPDATED] Renamed from 'category' to match your School Type filter
   category?: string;   // [NEW] The new DB column category
@@ -26,6 +28,8 @@ interface ExportButtonProps {
 export function ExportButton({
   stcode11,
   dtcode11,
+  stname,
+  dtname,
   yearId,
   schoolType,
   category,
@@ -44,10 +48,10 @@ export function ExportButton({
         title: 'Export Successful',
         description: `Data exported as ${format.toUpperCase()}.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: 'Export Failed',
-        description: 'Unable to export data. Please try again.',
+        description: error.message,
         variant: 'destructive',
       });
     } finally {
@@ -58,8 +62,10 @@ export function ExportButton({
   const handleCurrentViewExport = (format: 'csv' | 'json') => {
     // [UPDATED] Passes schoolType and category separately
     const filters = {
-      stcode: stcode11,
-      dtcode: dtcode11,
+      stcode11,
+      dtcode11,
+      stname,
+      dtname,
       yearId,
       schoolType,
       category,
@@ -74,7 +80,9 @@ export function ExportButton({
       return;
     }
     // Only pass location + year (ignoring category/management for "Full District Export")
-    const filters = { stcode: stcode11, dtcode: dtcode11, yearId };
+    const filters = {
+      stcode11, dtcode11, stname, dtname, yearId
+    };
     runExport(format, filters);
   };
 

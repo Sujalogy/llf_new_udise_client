@@ -120,32 +120,32 @@ export const api = {
     }),
 
   getMonitoringStats: () =>
-  request<{
-    summary: {
-      total_users: number;
-      active_today: number;
-      total_downloads: number;
-      daily_mb: number;
-      weekly_mb: number;
-      monthly_mb: number;
-    };
-    trends: { date: string; count: number }[];
-    topUsers: Array<{
-      name: string;
-      email: string;
-      role: string;
-      download_count: number;
-      total_mb: number;   // [NEW]
-      daily_mb: number;   // [NEW]
-      last_download: string;
-    }>;
-    recentLogs: any[];
-  }>({ url: "/admin/monitoring", method: "GET" }),
+    request<{
+      summary: {
+        total_users: number;
+        active_today: number;
+        total_downloads: number;
+        daily_mb: number;
+        weekly_mb: number;
+        monthly_mb: number;
+      };
+      trends: { date: string; count: number }[];
+      topUsers: Array<{
+        name: string;
+        email: string;
+        role: string;
+        download_count: number;
+        total_mb: number; // [NEW]
+        daily_mb: number; // [NEW]
+        last_download: string;
+      }>;
+      recentLogs: any[];
+    }>({ url: "/admin/monitoring", method: "GET" }),
 
   // --- Schools List & Search ---
   getUdiseList: (
-    stcode?: string,
-    dtcode?: string,
+    stcode11?: string,
+    dtcode11?: string,
     page = 1,
     limit = 100,
     schoolType?: string,
@@ -158,8 +158,8 @@ export const api = {
       url: "/schools/list",
       method: "GET",
       params: {
-        stcode11: stcode,
-        dtcode11: dtcode,
+        stcode11,
+        dtcode11,
         schoolType: schoolType !== "all" ? schoolType : undefined,
         category: category !== "all" ? category : undefined,
         management: management !== "all" ? management : undefined,
@@ -210,10 +210,10 @@ export const api = {
       method: "GET",
       params: { flag },
     }),
-  getSkippedSummary: (yearId?: string, stcode?: string) => {
+  getSkippedSummary: (yearId?: string, stcode11?: string) => {
     const params = new URLSearchParams();
     if (yearId) params.append("yearId", yearId);
-    if (stcode) params.append("stcode11", stcode);
+    if (stcode11) params.append("stcode11", stcode11);
     return request<
       { state: string; district: string; count: number; year: string }[]
     >(`/schools/skipped/summary?${params.toString()}`);
@@ -244,21 +244,15 @@ export const api = {
       data: { stcode11, dtcode11 },
     }),
 
-  syncSchoolDetails: (
-    yearId: string,
-    stcode: string,
-    dtcode: string,
-    udiseList?: string[],
-    config?: { batchSize?: number; strictMode?: boolean }
-  ) =>
+  syncSchoolDetails: ( yearId: string, stcode11: string, dtcode11: string, udiseList?: string[], config?: { batchSize?: number; strictMode?: boolean } ) =>
     request<SyncResponse>({
       // 👈 Ensure <SyncResponse> is here
       url: "/schools/sync/details",
       method: "POST",
       data: {
         yearId,
-        stcode11: stcode,
-        dtcode11: dtcode,
+        stcode11: stcode11,
+        dtcode11: dtcode11,
         udiseList,
         ...config,
       },
@@ -272,19 +266,55 @@ export const api = {
 
   // --- Exports (Special Handling for Blobs) ---
   exportSchools: async (filters: any, format: "csv" | "json") => {
-    const response = await apiClient.get("/schools/export/list", {
-      params: { ...filters, format },
-      responseType: "blob", // 👈 Required for file downloads in Axios
-    });
+    try {
+      const response = await apiClient.get("/schools/export/list", {
+        params: { ...filters, format },
+        responseType: "blob", // Required for file downloads
+      });
 
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `schools_export.${format}`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      // 1. Construct the filename: StateName_DistrictName_Date
+      const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+      const fileName = `${filters.stname}_${filters.dtname}_${date}.${format}`;
+      // 2. Trigger browser download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      // 3. Handle Blob errors to display the restriction message in a toast
+      if (error.response?.data instanceof Blob) {
+        const errorText = await error.response.data.text();
+        try {
+          const json = JSON.parse(errorText);
+          // This allows the "Download Restricted" message to show in the UI
+          throw new Error(json.message || "Export failed");
+        } catch (e) {
+          throw new Error("Export restricted or server error occurred.");
+        }
+      }
+      throw error;
+    }
   },
+
+  getPaginatedActivityLogs: (page: number, limit: number) =>
+  request<{
+    logs: any[];
+    pagination: {
+      totalLogs: number;
+      totalPages: number;
+      currentPage: number;
+      limit: number;
+    };
+  }>({ 
+    url: "/admin/monitoring/logs", 
+    method: "GET", 
+    params: { page, limit } 
+  }),
 
   exportSkippedList: async (format: "csv" | "json", filters: any) => {
     const response = await apiClient.get("/schools/skipped/export", {

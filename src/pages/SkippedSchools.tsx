@@ -53,7 +53,7 @@ export default function SkippedSchools() {
     }, [selectedYear, selectedState]);
 
     const handleDownload = (format: 'csv' | 'json') => {
-        api.exportSkippedList(format, { yearId: selectedYear, stcode: selectedState });
+        api.exportSkippedList(format, { yearId: selectedYear, stcode11: selectedState });
     };
 
     return (
