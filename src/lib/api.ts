@@ -120,16 +120,27 @@ export const api = {
     }),
 
   getMonitoringStats: () =>
-    request<{
-      summary: {
-        total_users: number;
-        active_today: number;
-        total_downloads: number;
-      };
-      trends: { date: string; count: number }[];
-      topUsers: any[];
-      recentLogs: any[];
-    }>({ url: "/admin/monitoring", method: "GET" }),
+  request<{
+    summary: {
+      total_users: number;
+      active_today: number;
+      total_downloads: number;
+      daily_mb: number;
+      weekly_mb: number;
+      monthly_mb: number;
+    };
+    trends: { date: string; count: number }[];
+    topUsers: Array<{
+      name: string;
+      email: string;
+      role: string;
+      download_count: number;
+      total_mb: number;   // [NEW]
+      daily_mb: number;   // [NEW]
+      last_download: string;
+    }>;
+    recentLogs: any[];
+  }>({ url: "/admin/monitoring", method: "GET" }),
 
   // --- Schools List & Search ---
   getUdiseList: (
