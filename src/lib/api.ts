@@ -13,6 +13,7 @@ import type {
   MatrixNode,
   SyncResponse,
 } from "../types/school";
+import { GoogleUser } from "../context/AuthContext";
 
 export const API_BASE = (import.meta as any).env.VITE_API_BASE_URL;
 
@@ -48,8 +49,18 @@ async function request<T>(config: any): Promise<T> {
 export const api = {
   // --- Metadata & Filters ---
   getMe: () => apiClient.get('/auth/me').then(res => res.data),
-  getYears: () => request<Year[]>({ url: "/years", method: "GET" }),
-  
+   googleLogin: (credential: string) => 
+    request<{ success: boolean; user: GoogleUser }>({ 
+      url: "/auth/google", 
+      method: "POST", 
+      data: { credential } 
+    }),
+    logout: () => 
+    request({ 
+      url: "/auth/logout", 
+      method: "POST" 
+    }),
+    getYears: () => request<Year[]>({ url: "/years", method: "GET" }),
   getFilters: () =>
     request<{
       schoolTypes: string[];

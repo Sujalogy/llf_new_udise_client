@@ -1,6 +1,5 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import axios from "axios";
 import { api, API_BASE } from "../lib/api";
 
 declare global {
@@ -52,7 +51,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-  // 1. Initialize Google Identity Services
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
@@ -79,15 +77,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // 2. Check session on mount using Axios
+  // 2. Check session on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Uses the api.getMe() helper we built in the axios refactor
         const data = await api.getMe();
         setUser(data.user);
       } catch (err: any) {
-        // If 401, user is just not logged in, no need for console error
         if (err.status !== 401) {
           console.error("Initial auth check failed", err);
         }
@@ -115,16 +111,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Hit backend using Axios
-      // Note: We use axios directly here because this is a specific login call
-      const res = await axios.post(`${API_BASE}/auth/google`,
-        { credential: response.credential },
-        { withCredentials: true } // Ensures cookie is accepted and stored
-      );
-
-      setUser(res.data.user);
+      // ✅ Use api.googleLogin instead of axios directly
+      const data = await api.googleLogin(response.credential);
+      setUser(data.user);
     } catch (err: any) {
-      // Extract error message from Axios error
       const message = err.response?.data?.message || err.response?.data?.error || "Login failed.";
       setAuthError(message);
     } finally {
@@ -151,12 +141,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
-      // Post to logout endpoint with credentials
-      await axios.post(`${API_BASE}/auth/logout`, {}, { withCredentials: true });
+      // ✅ Use api.logout instead of axios directly
+      await api.logout();
     } catch (err) {
       console.error("Logout failed", err);
     } finally {
-      // Always clear state regardless of API success
       setUser(null);
       setAuthError(null);
     }

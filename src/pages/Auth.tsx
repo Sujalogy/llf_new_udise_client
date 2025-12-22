@@ -112,7 +112,7 @@ export default function Auth() {
         </AlertDialog>
         <div className="mt-8 pt-4 border-t border-muted flex justify-center">
           <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded">
-            v 1.2.2
+            v 1.2.3
           </span>
         </div>
       </div>
