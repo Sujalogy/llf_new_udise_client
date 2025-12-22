@@ -77,7 +77,7 @@ export const api = {
         district_name: string;
       }>
     >({
-      url: "/locations/unsynced",
+      url: "/admin/locations/unsynced",
       method: "GET",
     }),
   getMasterStates: (yearId: string) =>
