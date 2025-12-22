@@ -1,6 +1,7 @@
 // src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { API_BASE } from "../lib/api";
+import axios from "axios";
+import { api, API_BASE } from "../lib/api";
 
 declare global {
   interface Window {
@@ -61,12 +62,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleResponse,
-          auto_select: true, // Automatically logs in returning users
+          auto_select: true,
           itp_support: true,
-          use_fedcm_for_prompt: true, // [FIX] Enables FedCM to avoid NetworkErrors
+          use_fedcm_for_prompt: true,
         });
 
-        // Optional: Trigger One Tap prompt on load
         window.google.accounts.id.prompt((notification) => {
           console.log("Google prompt notification:", notification);
         });
@@ -79,17 +79,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // 2. Check session on mount
+  // 2. Check session on mount using Axios
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
+        // Uses the api.getMe() helper we built in the axios refactor
+        const data = await api.getMe();
+        setUser(data.user);
+      } catch (err: any) {
+        // If 401, user is just not logged in, no need for console error
+        if (err.status !== 401) {
+          console.error("Initial auth check failed", err);
         }
-      } catch (err) {
-        console.error("Initial auth check failed", err);
       } finally {
         setIsLoading(false);
       }
@@ -97,40 +98,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
+  // 3. Handle Google Login Callback
   const handleGoogleResponse = async (response: any) => {
     setIsLoading(true);
     setAuthError(null);
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(window.atob(base64));
 
-    if (!payload.email.endsWith("@languageandlearningfoundation.org")) {
-      setAuthError("Unauthorized domain. Please use your official email.");
-      setIsLoading(false);
-      return;
-    }
     try {
-      const apiRes = await fetch(`${API_BASE}/auth/google`, {
-        method: "POST",
-        credentials: 'include',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ credential: response.credential }),
-      });
+      // Decode payload to check domain before hitting backend
+      const base64Url = response.credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(window.atob(base64));
 
-      const data = await apiRes.json();
-      if (!apiRes.ok) {
-        setAuthError(data.message || data.error);
+      if (!payload.email.endsWith("@languageandlearningfoundation.org")) {
+        setAuthError("Unauthorized domain. Please use your official email.");
+        setIsLoading(false);
         return;
       }
-      setUser(data.user);
+
+      // Hit backend using Axios
+      // Note: We use axios directly here because this is a specific login call
+      const res = await axios.post(`${API_BASE}/auth/google`, 
+        { credential: response.credential },
+        { withCredentials: true } // Ensures cookie is accepted and stored
+      );
+
+      setUser(res.data.user);
     } catch (err: any) {
-      setAuthError("Failed to connect to authentication server.");
+      // Extract error message from Axios error
+      const message = err.response?.data?.message || err.response?.data?.error || "Login failed.";
+      setAuthError(message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // [NEW] Helper to render the personalized "Continue as..." button
   const renderGoogleButton = (containerId: string) => {
     if (window.google) {
       window.google.accounts.id.renderButton(
@@ -139,7 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           type: "standard",
           theme: "outline",
           size: "large",
-          text: "continue_with", // Shows user name/picture if known
+          text: "continue_with",
           shape: "rectangular",
           width: "350",
           use_fedcm_for_button: true
@@ -150,15 +151,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
-      await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: 'include' });
+      // Post to logout endpoint with credentials
+      await axios.post(`${API_BASE}/auth/logout`, {}, { withCredentials: true });
+    } catch (err) {
+      console.error("Logout failed", err);
     } finally {
+      // Always clear state regardless of API success
       setUser(null);
       setAuthError(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, role: user?.role, isLoading, authError, setAuthError, renderGoogleButton, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      role: user?.role, 
+      isLoading, 
+      authError, 
+      setAuthError, 
+      renderGoogleButton, 
+      signOut 
+    }}>
       {children}
     </AuthContext.Provider>
   );
