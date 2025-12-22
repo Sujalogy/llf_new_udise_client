@@ -159,6 +159,11 @@ export const api = {
       },
     }),
 
+  getLocalSchoolDetails: (udise: string) =>
+    request<SchoolProfile>({
+      url: `/schools/local-details/${udise}`,
+      method: "GET",
+    }),
   searchSchools: (searchType: number, searchParam: string) =>
     request<School[]>({
       url: "/schools/search",
@@ -194,7 +199,7 @@ export const api = {
       method: "GET",
       params: { flag },
     }),
- getSkippedSummary: (yearId?: string, stcode?: string) => {
+  getSkippedSummary: (yearId?: string, stcode?: string) => {
     const params = new URLSearchParams();
     if (yearId) params.append("yearId", yearId);
     if (stcode) params.append("stcode11", stcode);
