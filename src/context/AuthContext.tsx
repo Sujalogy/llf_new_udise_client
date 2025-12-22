@@ -117,7 +117,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Hit backend using Axios
       // Note: We use axios directly here because this is a specific login call
-      const res = await axios.post(`${API_BASE}/auth/google`, 
+      const res = await axios.post(`${API_BASE}/auth/google`,
         { credential: response.credential },
         { withCredentials: true } // Ensures cookie is accepted and stored
       );
@@ -163,14 +163,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      role: user?.role, 
-      isLoading, 
-      authError, 
-      setAuthError, 
-      renderGoogleButton, 
-      signOut 
+    <AuthContext.Provider value={{
+      user,
+      role: user?.role,
+      isLoading,
+      authError,
+      setAuthError,
+      renderGoogleButton,
+      signOut
     }}>
       {children}
     </AuthContext.Provider>
