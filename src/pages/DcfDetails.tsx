@@ -84,7 +84,7 @@ export default function DcfDetails() {
 
   const handleDownloadDcf = () => {
     const link = document.createElement("a");
-    link.href = "/UDISE DCF.pdf"; //
+    link.href = "https://drive.google.com/file/d/1se4eK6eOomyL9M3Ncnb3MXVmS8tmStaR/view?usp=sharing"; //
     link.download = "UDISE_DCF_Template_2025-26.pdf";
     link.click();
   };
